@@ -1,5 +1,6 @@
 'use strict';
-const CACHE_NAME = 'nora-writer-cache-v1.0.0';
+
+const CACHE_NAME = 'nora-novelist-cache-v1.0.0';
 const urlsToCache = [
   './',
   './index.html',
@@ -14,7 +15,7 @@ const urlsToCache = [
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      console.log('Opened cache and caching files for Nora Writer');
+      console.log('Opened cache and caching files for Nora Novelist');
       return cache.addAll(urlsToCache);
     }).then(() => self.skipWaiting())
   );
@@ -35,6 +36,14 @@ self.addEventListener('activate', event => {
     })
   );
 });
+
+self.addEventListener('fetch', event => {
+  event.respondWith(
+    fetch(event.request).catch(() => {
+      return caches.match(event.request);
+    })
+  );
+});});
 
 self.addEventListener('fetch', event => {
     event.respondWith(
