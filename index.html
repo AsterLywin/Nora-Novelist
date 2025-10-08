@@ -294,11 +294,9 @@
     <div id="notification-container"></div>
 
     <script>
-        // Web Worker Initialization
         let worker;
         if (window.Worker) {
-            // Path is now explicitly relative ('./') to work correctly on GitHub Pages
-            worker = new Worker('./worker.js', { type: 'module' });
+            worker = new Worker('./worker.js');
             worker.onmessage = function(e) {
                 const { type, payload } = e.data;
                 if (type === 'log' || type === 'error') {
