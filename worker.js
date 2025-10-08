@@ -1,17 +1,30 @@
-// worker.js (Final Corrected Version)
+// worker.js (Final Version with New CDN and Critical Checks)
 
-// Use the classic, more robust importScripts to load external libraries in a worker.
 try {
+    // Using UNPKG as an alternative CDN which sometimes has better compatibility.
     importScripts(
-        'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1/dist/transformers.min.js',
-        'https://cdn.jsdelivr.net/npm/chromadb@1.8.1/dist/index.min.js'
+        'https://unpkg.com/@xenova/transformers@2.17.1/dist/transformers.min.js',
+        'https://unpkg.com/chromadb@1.8.1/dist/index.min.js'
     );
 } catch (e) {
-    console.error('Error importing scripts:', e);
-    self.postMessage({ type: 'error', payload: 'Failed to load core AI libraries.' });
+    // This will catch direct network errors or syntax errors in the imported scripts.
+    console.error('CRITICAL: importScripts failed to execute.', e);
+    // Re-throw to make sure the worker's onerror handler in index.html catches this.
+    throw e;
 }
 
-// After importScripts, libraries are available on the global `self` object.
+// --- CRITICAL CHECK ---
+// This is the most important part. We check if the libraries actually attached to the global scope.
+if (typeof self.transformers === 'undefined' || !self.transformers.pipeline) {
+    throw new Error("FATAL: Transformers.js library was imported but failed to initialize. 'self.transformers' is not defined. This could be a network, VPN, or CORS issue.");
+}
+if (typeof self.chromadb === 'undefined' || !self.chromadb.ChromaClient) {
+    throw new Error("FATAL: ChromaDB library was imported but failed to initialize. 'self.chromadb' is not defined.");
+}
+// --- END OF CRITICAL CHECK ---
+
+
+// Now we can safely destructure the variables.
 const { pipeline, env } = self.transformers;
 const { ChromaClient } = self.chromadb;
 
@@ -19,19 +32,12 @@ const { ChromaClient } = self.chromadb;
 env.allowLocalModels = false;
 env.useBrowserCache = true;
 
-// --- State Management ---
-let embeddingPipeline = null;
-let chromaClient = null;
-
+// --- State Management & Functions ---
 const log = (message) => self.postMessage({ type: 'log', payload: message });
 const error = (message) => self.postMessage({ type: 'error', payload: message });
 
-// --- Core Classes & Functions ---
-
 class TransformerEmbeddingFunction {
-    constructor(pipeline) {
-        this.pipeline = pipeline;
-    }
+    constructor(pipeline) { this.pipeline = pipeline; }
     async generate(documents) {
         try {
             let embeddings = await this.pipeline(documents, { pooling: 'mean', normalize: true });
@@ -44,17 +50,9 @@ class TransformerEmbeddingFunction {
 }
 
 async function initialize() {
-    if (typeof pipeline === 'undefined' || typeof ChromaClient === 'undefined') {
-        error("Initialization failed because core libraries did not load.");
-        return;
-    }
-    
     try {
         log('Initializing worker...');
-        embeddingPipeline = await pipeline('feature-extraction', 'sentence-transformers/all-MiniLM-L6-v2', {
-             quantized: true,
-        });
-        
+        embeddingPipeline = await pipeline('feature-extraction', 'sentence-transformers/all-MiniLM-L6-v2', { quantized: true });
         chromaClient = new ChromaClient();
         log('Worker initialized successfully.');
         self.postMessage({ type: 'ready' });
