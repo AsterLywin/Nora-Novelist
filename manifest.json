@@ -1,0 +1,23 @@
+{
+  "name": "Nora - دستیار نویسندگی هوشمند",
+  "short_name": "Nora",
+  "description": "با استفاده از حافظه هوشمند و بلندمدت، داستان‌های بلند و پیچیده بنویسید.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#1e1e1e",
+  "theme_color": "#3a3a3a",
+  "icons": [
+    {
+      "src": "./Icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./Icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
