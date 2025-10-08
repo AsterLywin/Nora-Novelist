@@ -75,7 +75,6 @@ function chunkText(text, chunkSize = 250, overlap = 50) {
     return chunks;
 }
 
-// ... (The rest of the worker code remains the same as the previous response) ...
 // --- API Handlers ---
 async function getOrCreateCollections(chatId){const embedder=new TransformerEmbeddingFunction(embeddingPipeline);const activeCollectionName=`chat_${chatId}_active`;const archiveCollectionName=`chat_${chatId}_archive`;const activeCollection=await chromaClient.getOrCreateCollection({name:activeCollectionName,embeddingFunction:embedder});const archiveCollection=await chromaClient.getOrCreateCollection({name:archiveCollectionName,embeddingFunction:embedder});return{activeCollection,archiveCollection}}
 async function handleAddToMemory({chatId,messageId,text}){if(!embeddingPipeline||!chromaClient){error('Worker is not initialized.');return}
