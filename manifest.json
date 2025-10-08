@@ -1,7 +1,7 @@
 {
-  "name": "Nora - دستیار نویسندگی هوشمند",
+  "name": "Nora - AI Writing Assistant",
   "short_name": "Nora",
-  "description": "با استفاده از حافظه هوشمند و بلندمدت، داستان‌های بلند و پیچیده بنویسید.",
+  "description": "An intelligent creative writing assistant with long-term memory, powered by AI.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#1e1e1e",
