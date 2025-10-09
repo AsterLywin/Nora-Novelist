@@ -1,36 +1,20 @@
-// worker.js (FINAL VERSION - LOCAL DEPENDENCY)
+// worker.js (FINAL & CORRECTED MODULE VERSION)
 
-try {
-    // Load the main library from the local 'libs' folder.
-    importScripts('./libs/transformers.min.js'); 
+// Import BOTH libraries from the local 'libs' folder using the modern ES Module syntax.
+// NOTE: We must include the file extension .mjs for chromadb.
+import { pipeline, env } from './libs/transformers.min.js';
+import { ChromaClient } from './libs/chromadb.mjs';
 
-    // Load the second library from a reliable CDN as it's smaller and less problematic.
-    importScripts('https://unpkg.com/chromadb@1.8.1/dist/index.min.js');
-
-} catch (e) {
-    console.error('CRITICAL: importScripts failed to execute.', e);
-    throw e;
-}
-
-// --- CRITICAL CHECK ---
-if (typeof self.transformers === 'undefined' || !self.transformers.pipeline) {
-    throw new Error("FATAL: Local transformers.min.js library failed to load or initialize.");
-}
-if (typeof self.chromadb === 'undefined' || !self.chromadb.ChromaClient) {
-    throw new Error("FATAL: ChromaDB library from CDN failed to load or initialize.");
-}
-// --- END OF CRITICAL CHECK ---
-
-
-const { pipeline, env } = self.transformers;
-const { ChromaClient } = self.chromadb;
-
+// Skip local model checks
 env.allowLocalModels = false;
 env.useBrowserCache = true;
 
 // --- State Management & Functions ---
 const log = (message) => self.postMessage({ type: 'log', payload: message });
 const error = (message) => self.postMessage({ type: 'error', payload: message });
+
+let embeddingPipeline = null;
+let chromaClient = null;
 
 class TransformerEmbeddingFunction {
     constructor(pipeline) { this.pipeline = pipeline; }
@@ -81,8 +65,6 @@ async function handleCreateCollection({chatId}){log(`Ensuring collections exist 
 async function handleClearCollection({chatId}){log(`Clearing memory for chat ${chatId}...`);try{const{activeCollection,archiveCollection}=await getOrCreateCollections(chatId);const activeItems=await activeCollection.get();if(activeItems.ids.length>0)await activeCollection.delete({ids:activeItems.ids});const archiveItems=await archiveCollection.get();if(archiveItems.ids.length>0)await archiveCollection.delete({ids:archiveItems.ids});log(`Memory cleared for chat ${chatId}.`)}catch(e){error(`Failed to clear memory for chat ${chatId}: ${e.message}`)}}
 async function handleDeleteCollection({chatId}){log(`Deleting memory collections for chat ${chatId}...`);try{const activeCollectionName=`chat_${chatId}_active`;const archiveCollectionName=`chat_${chatId}_archive`;await chromaClient.deleteCollection({name:activeCollectionName});await chromaClient.deleteCollection({name:archiveCollectionName});log(`Collections for chat ${chatId} deleted.`)}catch(e){log(`Could not delete collections for chat ${chatId} (they may not have existed): ${e.message}`)}}
 
-// --- Event Listener ---
 self.onmessage=(e)=>{const{type,payload}=e.data;switch(type){case'add-to-memory':handleAddToMemory(payload);break;case'get-context':handleGetContext(payload);break;case'create-collection':handleCreateCollection(payload);break;case'clear-collection':handleClearCollection(payload);break;case'delete-collection':handleDeleteCollection(payload);break;default:error(`Unknown message type: ${type}`);break;}};
 
-// --- Initialization ---
 initialize();
