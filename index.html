@@ -194,7 +194,7 @@
             </div>
         </div>
 
-        <!-- *** FIXED: Restored the full, correct HTML content for the sidebar *** -->
+        <!-- *** FIXED: Restored the full, original content of the sidebar *** -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-content" id="sidebar-content">
                 <div class="sidebar-main">
@@ -318,7 +318,7 @@
     <div id="notification-container"></div>
 
     <script>
-        // *** Web Worker Initialization and State Handling ***
+        // Web Worker Initialization and State Handling
         let worker;
         if (window.Worker) {
             worker = new Worker('./worker.js', { type: 'module' }); 
@@ -636,7 +636,6 @@
             });
         }
 
-        // --- All other functions (save, render, UI toggles, etc.) remain unchanged. ---
         function saveChats() { localStorage.setItem('chats', JSON.stringify(chats)); }
         function saveChatsDebounced() { clearTimeout(saveTimeout); saveTimeout = setTimeout(() => { saveChats(); console.log("Chat data saved."); }, 500); }
         function saveSettings() { localStorage.setItem('settings', JSON.stringify(settings)); }
