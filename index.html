@@ -294,10 +294,11 @@
     <div id="notification-container"></div>
 
     <script>
-        // Web Worker Initialization
+        // Web Worker Initialization - FINAL VERSION
         let worker;
         if (window.Worker) {
-            worker = new Worker('./worker.js'); 
+            // Load worker as a 'module' to support modern 'import' syntax inside it.
+            worker = new Worker('./worker.js', { type: 'module' }); 
             
             worker.onmessage = function(e) {
                 const { type, payload } = e.data;
@@ -313,27 +314,18 @@
                 }
             };
             
-            // --- FINAL DEBUGGING ERROR HANDLER ---
+            // Advanced error handler for debugging
             worker.onerror = function(e) {
-                // Prevent the default browser action for the error
                 e.preventDefault(); 
-                
-                // Log the detailed error to the console for developers
                 console.error(`[Worker] Unhandled Error: Line ${e.lineno} in ${e.filename}: ${e.message}`, e);
-                
-                // Show the exact, detailed error message in an alert pop-up for immediate feedback
                 alert(`خطای بحرانی در بارگذاری دستیار:\n\nفایل: ${e.filename}\nشماره خط: ${e.lineno}\n\nپیام: ${e.message}\n\nلطفا از این پیام اسکرین‌شات بگیرید.`);
-                
-                // Show the generic notification bar to the user
                 showNotification('خطای بحرانی در بارگذاری دستیار.', 'error');
             };
-            // --- END OF DEBUGGING HANDLER ---
 
         } else {
             alert('مرورگر شما از Web Workers پشتیبانی نمی‌کند. عملکرد برنامه ممکن است مختل شود.');
         }
 
-        // ... (The rest of the script remains unchanged) ...
         let chats = [];
         try {
             chats = JSON.parse(localStorage.getItem('chats')) || [];
@@ -687,7 +679,6 @@
             const eyeSlashIconSVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.99902 3L20.999 21M9.8433 9.91364C9.32066 10.4536 8.99902 11.1892 8.99902 12C8.99902 13.6569 10.3422 15 11.999 15C12.8215 15 13.5667 14.669 14.1086 14.133M6.49902 6.64715C4.59972 7.90034 3.15305 9.78394 2.45703 12C3.73128 16.0571 7.52159 19 11.9992 19C13.9881 19 15.8414 18.4194 17.3988 17.4184M10.999 5.04939C11.328 5.01673 11.6617 5 11.9992 5C16.4769 5 20.2672 7.94291 21.5414 12C21.2607 12.894 20.8577 13.7338 20.3522 14.5" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
             readingModeButton.innerHTML = readingMode ? eyeIconSVG : eyeSlashIconSVG;
             readingModeButton.title = readingMode ? 'خروج از حالت مطالعه' : 'حالت مطالعه';
-            readingModeButton.classList.toggle('active', readingMode);
             if (readingMode) { enterFullScreen(); } else { exitFullScreen(); }
             requestAnimationFrame(() => { restoreScrollPosition(anchor); });
         }
