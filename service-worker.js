@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'nora-novelist-cache-v1.0.3';
+const CACHE_NAME = 'nora-novelist-cache-v1.0.5';
 const urlsToCache = [
   './',
   './index.html',
