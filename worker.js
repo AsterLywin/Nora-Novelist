@@ -4,13 +4,13 @@
 import { pipeline, env } from './libs/transformers.min.js';
 import { ChromaClient } from './libs/chromadb.mjs';
 
-// Configuration for the transformer pipeline
 env.allowLocalModels = false;
 env.useBrowserCache = true;
 
-// --- State Management & Helper Functions ---
 const log = (message) => self.postMessage({ type: 'log', payload: message });
 const error = (message) => self.postMessage({ type: 'error', payload: message });
+
+const ACTIVE_MEMORY_CHAPTER_LIMIT = 20;const ARCHIVE_BATCH_SIZE = 1;
 
 let embeddingPipeline = null;
 let chromaClient = null;
@@ -34,10 +34,7 @@ async function initialize() {
         embeddingPipeline = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', { quantized: true });
         chromaClient = new ChromaClient();
         log('Worker initialized successfully.');
-        
-        // *** ADDED: Send a 'ready' message to the main thread when initialization is complete ***
         self.postMessage({ type: 'ready' });
-
     } catch (e) {
         error(`Initialization failed: ${e.message}`);
     }
@@ -55,7 +52,6 @@ function chunkText(text, chunkSize = 250, overlap = 50) {
     return chunks;
 }
 
-// --- API Handlers for communication with the main thread ---
 async function getOrCreateCollections(chatId) {
     const embedder = new TransformerEmbeddingFunction(embeddingPipeline);
     const activeCollectionName = `chat_${chatId}_active`;
@@ -73,10 +69,13 @@ async function handleAddToMemory({ chatId, messageId, text }) {
         const chunks = chunkText(text);
         if (chunks.length === 0) return;
         const ids = chunks.map((_, i) => `msg_${messageId}_chunk_${i}`);
-        const metadatas = chunks.map(() => ({ message_id: messageId, timestamp: Date.now() }));
+        const metadatas = chunks.map(() => ({ chapter_id: messageId, timestamp: Date.now() }));
         await activeCollection.add({ ids, documents: chunks, metadatas });
         log(`Successfully added ${chunks.length} chunks to active memory for chat ${chatId}.`);
         self.postMessage({ type: 'add-to-memory-done', payload: { messageId } });
+
+        runMaintenance(chatId);
+
     } catch (e) {
         error(`Failed to add to memory: ${e.message}`);
     }
@@ -88,20 +87,84 @@ async function handleGetContext({ chatId, queryText, messageId, regenerationInst
     try {
         const { activeCollection, archiveCollection } = await getOrCreateCollections(chatId);
         let context = [];
+        
         const activeResults = await activeCollection.query({ queryTexts: [queryText], nResults: 5 });
         if (activeResults.documents && activeResults.documents[0].length > 0) {
             context.push(...activeResults.documents[0]);
         }
+
         const archiveResults = await archiveCollection.query({ queryTexts: [queryText], nResults: 2 });
         if (archiveResults.documents && archiveResults.documents[0].length > 0) {
             context.unshift(...archiveResults.documents[0].map(summary => `[خلاصه از گذشته: ${summary}]`));
         }
+
         const uniqueContext = [...new Set(context)];
         const formattedContext = uniqueContext.join("\n---\n");
         log(`Retrieved context for chat ${chatId}: ${formattedContext.substring(0, 200)}...`);
         self.postMessage({ type: 'context-retrieved', payload: { context: formattedContext, messageId, regenerationInstruction } });
     } catch (e) {
         error(`Failed to get context: ${e.message}`);
+    }
+}
+
+async function runMaintenance(chatId) {
+    log(`[Maintenance] Running check for chat ${chatId}...`);
+    try {
+        const { activeCollection } = await getOrCreateCollections(chatId);
+        const allItems = await activeCollection.get({ include: ["metadatas"] });
+
+        if (!allItems.metadatas || allItems.metadatas.length === 0) {
+            log('[Maintenance] Active memory is empty. Nothing to do.');
+            return;
+        }
+
+        const chapterIds = [...new Set(allItems.metadatas.map(m => m.chapter_id))].sort((a, b) => a - b);
+        
+        if (chapterIds.length > ACTIVE_MEMORY_CHAPTER_LIMIT) {
+            const chaptersToArchive = chapterIds.slice(0, chapterIds.length - ACTIVE_MEMORY_CHAPTER_LIMIT).slice(0, ARCHIVE_BATCH_SIZE);
+            log(`[Maintenance] Found ${chaptersToArchive.length} chapter(s) to archive: [${chaptersToArchive.join(', ')}]`);
+
+            for (const chapterId of chaptersToArchive) {
+                const chapterChunks = await activeCollection.get({ where: { chapter_id: chapterId } });
+                const fullText = chapterChunks.documents.join(' ');
+                
+                self.postMessage({
+                    type: 'summarize-and-archive',
+                    payload: {
+                        chatId,
+                        chapterIdToArchive: chapterId,
+                        fullText,
+                    }
+                });
+            }
+        } else {
+            log(`[Maintenance] Active memory within limits (${chapterIds.length}/${ACTIVE_MEMORY_CHAPTER_LIMIT}). No archiving needed.`);
+        }
+    } catch (e) {
+        error(`[Maintenance] Error during maintenance run for chat ${chatId}: ${e.message}`);
+    }
+}
+
+async function handleArchiveData({ chatId, chapterIdToArchive, summary }) {
+    log(`[Archive] Archiving summary for chapter ${chapterIdToArchive} in chat ${chatId}.`);
+    try {
+        const { activeCollection, archiveCollection } = await getOrCreateCollections(chatId);
+        
+        await archiveCollection.add({
+            ids: [`summary_${chapterIdToArchive}`],
+            documents: [summary],
+            metadatas: [{ original_chapter_id: chapterIdToArchive }]
+        });
+        log(`[Archive] Summary for chapter ${chapterIdToArchive} added to archive.`);
+
+        const chunksToDelete = await activeCollection.get({ where: { chapter_id: chapterIdToArchive } });
+        if (chunksToDelete.ids && chunksToDelete.ids.length > 0) {
+            await activeCollection.delete({ ids: chunksToDelete.ids });
+            log(`[Archive] Deleted ${chunksToDelete.ids.length} chunks for chapter ${chapterIdToArchive} from active memory.`);
+        }
+
+    } catch (e) {
+        error(`[Archive] Failed to finalize archiving for chapter ${chapterIdToArchive}: ${e.message}`);
     }
 }
 
@@ -118,14 +181,16 @@ async function handleCreateCollection({ chatId }) {
 async function handleClearCollection({ chatId }) {
     log(`Clearing memory for chat ${chatId}...`);
     try {
-        const { activeCollection, archiveCollection } = await getOrCreateCollections(chatId);
-        const activeItems = await activeCollection.get();
-        if (activeItems.ids.length > 0) await activeCollection.delete({ ids: activeItems.ids });
-        const archiveItems = await archiveCollection.get();
-        if (archiveItems.ids.length > 0) await archiveCollection.delete({ ids: archiveItems.ids });
+        const activeCollectionName = `chat_${chatId}_active`;
+        const archiveCollectionName = `chat_${chatId}_archive`;
+        await chromaClient.deleteCollection({ name: activeCollectionName });
+        await chromaClient.deleteCollection({ name: archiveCollectionName });
+        await getOrCreateCollections(chatId); // Re-create them empty
         log(`Memory cleared for chat ${chatId}.`);
     } catch (e) {
-        error(`Failed to clear memory for chat ${chatId}: ${e.message}`);
+        try { await getOrCreateCollections(chatId); } catch (e2) {
+             error(`Failed to clear/re-create memory for chat ${chatId}: ${e.message}`);
+        }
     }
 }
 
@@ -142,7 +207,6 @@ async function handleDeleteCollection({ chatId }) {
     }
 }
 
-// Main message handler for the worker
 self.onmessage = (e) => {
     const { type, payload } = e.data;
     switch (type) {
@@ -151,9 +215,9 @@ self.onmessage = (e) => {
         case 'create-collection': handleCreateCollection(payload); break;
         case 'clear-collection': handleClearCollection(payload); break;
         case 'delete-collection': handleDeleteCollection(payload); break;
+        case 'archive-data': handleArchiveData(payload); break;
         default: error(`Unknown message type: ${type}`); break;
     }
 };
 
-// Start the initialization process as soon as the worker is loaded
 initialize();
