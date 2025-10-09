@@ -19,7 +19,6 @@ var __spreadValues = (a, b) => {
 var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
 
 // src/generated/runtime.ts
-import "isomorphic-fetch";
 var defaultFetch = fetch;
 var BASE_PATH = "";
 var BaseAPI = class {
