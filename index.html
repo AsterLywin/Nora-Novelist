@@ -24,12 +24,39 @@
         .ai-message.loading::after { content: ''; display: inline-block; width: 12px; height: 12px; border: 2px solid #2563eb; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 8px; vertical-align: middle; }
         .loading-timer { margin-right: 5px; font-weight: bold; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .input-area { position: absolute; bottom: 0; left: 0; right: 0; pointer-events: none; }
-        .input-wrapper { display: flex; justify-content: flex-start; padding: 15px 20px; }
-        .input-area .send-button { width: 50px; height: 50px; background-color: #2563eb; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25); transition: background-color 0.2s; pointer-events: auto; }
+        
+        /* --- CORRECTED: Input Area Layout for floating button on the RIGHT --- */
+        .input-area {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            pointer-events: none; /* Allows scrolling through the empty area */
+        }
+        .input-wrapper {
+            display: flex;
+            justify-content: flex-start; /* Corrected: flex-start aligns to the right in RTL */
+            padding: 15px 20px;
+        }
+        .input-area .send-button {
+            width: 50px;
+            height: 50px;
+            background-color: #2563eb;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+            transition: background-color 0.2s;
+            pointer-events: auto; /* Re-enable pointer events for the button itself */
+        }
         .input-area .send-button:hover { background-color: #4a8bff; }
         .send-button svg { width: 24px; height: 24px; }
         .input-area .send-button:disabled { background-color: #6b7280; cursor: not-allowed; }
+        /* --- END OF CHANGES --- */
+
         .menu-button { position: static; background-color: #2563eb; border: none; border-radius: 5px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; }
         .menu-button.hidden { opacity: 0; pointer-events: none; }
         .menu-button:hover { background-color: #4a8bff; }
@@ -167,7 +194,7 @@
             </div>
         </div>
 
-        <!-- *** FIXED: Restored the full content of the sidebar *** -->
+        <!-- *** FIXED: Restored the full, correct HTML content for the sidebar *** -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-content" id="sidebar-content">
                 <div class="sidebar-main">
@@ -291,7 +318,7 @@
     <div id="notification-container"></div>
 
     <script>
-        // Web Worker Initialization
+        // *** Web Worker Initialization and State Handling ***
         let worker;
         if (window.Worker) {
             worker = new Worker('./worker.js', { type: 'module' }); 
@@ -331,8 +358,9 @@
         } else {
             alert('مرورگر شما از Web Workers پشتیبانی نمی‌کند. عملکرد برنامه ممکن است مختل شود.');
         }
+
+        // --- All other variables and functions ---
         
-        // --- Rest of the script remains unchanged ---
         let chats = [];
         try {
             chats = JSON.parse(localStorage.getItem('chats')) || [];
@@ -340,9 +368,11 @@
             console.error("Could not parse chats from localStorage:", e);
             chats = [];
         }
+        
         let currentChatId = chats.length > 0 ? chats[chats.length - 1].id : 0;
         let readingMode = false;
         let draggedChat = null;
+        
         let settings = {};
         try {
             settings = JSON.parse(localStorage.getItem('settings')) || { apiKey: '', selectedModel: 'gemini-2.0-flash' };
@@ -350,6 +380,7 @@
             console.error("Could not parse settings from localStorage:", e);
             settings = { apiKey: '', selectedModel: 'gemini-2.0-flash' };
         }
+        
         let isCreatingChat = false;
         let aboutUsActive = false;
         let messageIdCounter = chats.reduce((max, chat) => { const maxChatId = chat.messages.reduce((m, msg) => Math.max(m, msg.id || 0), 0); return Math.max(max, maxChatId); }, 0) + 1;
@@ -357,18 +388,321 @@
         let activeGeneration = null;
         let saveTimeout = null;
         let currentRegenerateMessageId = null;
-        function showNotification(message, type = 'info') { const container = document.getElementById('notification-container'); const notification = document.createElement('div'); notification.className = `toast-notification ${type}`; notification.textContent = message; container.appendChild(notification); requestAnimationFrame(() => { notification.classList.add('show'); }); setTimeout(() => { notification.classList.remove('show'); notification.addEventListener('transitionend', () => { if (notification.parentElement === container) { container.removeChild(notification); } }, { once: true }); }, 3000); }
-        async function _callGeminiAPI(fullPrompt, apiKey, modelName, signal) { const apiUrl = `https://generativelace.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`; const payload = { contents: [{ parts: [{ text: fullPrompt }] }] }; const response = await fetch(apiUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal }); if (!response.ok) { const errorData = await response.json(); const errorMessage = errorData?.error?.message || `خطای ناشناخته با کد ${response.status}`; switch (response.status) { case 400: throw new Error("درخواست ارسال شده به مدل هوش مصنوعی ناقص یا اشتباه است."); case 403: throw new Error("کلید API وارد شده نامعتبر است یا دسترسی لازم را ندارد."); case 429: throw new Error("تعداد درخواست‌ها به سرور هوش مصنوعی بیش از حد مجاز بوده است."); case 500: throw new Error("یک خطای داخلی در سرور هوش مصنوعی رخ داده است."); case 503: throw new Error("سرویس هوش مصنوعی در حال حاضر در دسترس نیست."); default: throw new Error(`خطای API: ${errorMessage}`); } } const data = await response.json(); if (data.candidates && data.candidates[0].finishReason === 'SAFETY') { throw new Error("تولید متن به دلیل فعال شدن فیلترهای ایمنی گوگل متوقف شد."); } const generatedText = data?.candidates?.[0]?.content?.parts?.[0]?.text; if (!generatedText) throw new Error("پاسخ دریافتی از API خالی یا نامعتبر است."); return generatedText; }
-        async function handleContextRetrieved(payload) { const { context, messageId, regenerationInstruction } = payload; const currentChat = chats.find(chat => chat.id === currentChatId); if (!currentChat || !activeGeneration || activeGeneration.messageId !== messageId) return; const aiMessageElement = activeGeneration.messageGroup.querySelector('.ai-message'); aiMessageElement.firstChild.textContent = 'در حال نوشتن داستان...'; const lastMessageText = currentChat.messages.length > 0 ? currentChat.messages[currentChat.messages.length - 1].text : "این اولین بخش داستان است."; let fullPrompt = `${currentChat.prompt}\n\n`; if (context && context.length > 0) { fullPrompt += `## خلاصه و بخش‌های مرتبط قبلی داستان:\n${context}\n\n`; } fullPrompt += `## آخرین بخش نوشته شده از داستان:\n${lastMessageText}\n\n`; if(regenerationInstruction){ fullPrompt += `## دستورالعمل اصلاحی:\n${regenerationInstruction}\n\n## وظیفه:\nبر اساس دستورالعمل بالا، بخش آخر داستان را بازنویسی کن.\n`; } else { fullPrompt += `## وظیفه:\nادامه داستان را بنویس.\n`; } try { const generatedText = await _callGeminiAPI(fullPrompt, settings.apiKey, settings.selectedModel, activeGeneration.controller.signal); const messageIndex = currentChat.messages.findIndex(m => m.id === messageId); if (messageIndex !== -1) { currentChat.messages[messageIndex].text = generatedText; } saveChatsDebounced(); const directionClass = isRTL(generatedText) ? 'rtl' : 'ltr'; aiMessageElement.className = `message ai-message ${directionClass}`; aiMessageElement.innerHTML = ''; const messageBdi = document.createElement('bdi'); messageBdi.textContent = generatedText; aiMessageElement.appendChild(messageBdi); const actionsDiv = document.createElement('div'); actionsDiv.className = 'ai-message-actions'; actionsDiv.innerHTML = `<button class="options-button" onclick="toggleAiMessageMenu(event, this)"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 13C12.5523 13 13 12.5523 13 12C13 11.4477 12.5523 11 12 11C11.4477 11 11 11.4477 11 12C11 12.5523 11.4477 13 12 13Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 6C12.5523 6 13 5.55228 13 5C13 4.44772 12.5523 4 12 4C11.4477 4 11 4.44772 11 5C11 5.55228 11.4477 6 12 6Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 20C12.5523 20 13 19.5523 13 19C13 18.4477 12.5523 18 12 18C11.4477 18 11 18.4477 11 19C11 19.5523 11.4477 20 12 20Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="ai-message-context-menu"><button class="regenerate-action" onclick="openRegenerateModal(${messageId})" title="اصلاح و بازنویسی"><svg class="regenerate-svg" viewBox="0 0 24 24" width="18" height="18"><path d="M23 4v6h-6" stroke-width="2"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke-width="2"></path></svg><span>اصلاح و بازنویسی</span></button></div>`; aiMessageElement.appendChild(actionsDiv); worker.postMessage({ type: 'add-to-memory', payload: { chatId: currentChatId, messageId: messageId, text: generatedText } }); } catch(error) { handleGenerationError(error, aiMessageElement, messageId); } finally { clearInterval(activeGeneration.timerInterval); isGenerating = false; activeGeneration = null; document.querySelector('.send-button').disabled = false; } }
-        function handleGenerationError(error, aiMessageElement, messageId) { if (error.name === 'AbortError') { console.log("Generation aborted by user."); return; } console.error("Generation failed:", error); aiMessageElement.className = 'message ai-message rtl error'; aiMessageElement.innerHTML = ''; const errorMessageBdi = document.createElement('bdi'); errorMessageBdi.textContent = `خطا: ${error.message}`; aiMessageElement.appendChild(errorMessageBdi); const actionsDiv = document.createElement('div'); actionsDiv.className = 'ai-message-actions'; actionsDiv.innerHTML = `<button class="options-button" onclick="toggleAiMessageMenu(event, this)"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 13C12.5523 13 13 12.5523 13 12C13 11.4477 12.5523 11 12 11C11.4477 11 11 11.4477 11 12C11 12.5523 11.4477 13 12 13Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 6C12.5523 6 13 5.55228 13 5C13 4.44772 12.5523 4 12 4C11.4477 4 11 4.44772 11 5C11 5.55228 11.4477 6 12 6Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 20C12.5523 20 13 19.5523 13 19C13 18.4477 12.5523 18 12 18C11.4477 18 11 18.4477 11 19C11 19.5523 11.4477 20 12 20Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="ai-message-context-menu"><button class="regenerate-action" onclick="openRegenerateModal(${messageId})" title="اصلاح و بازنویسی"><svg class="regenerate-svg" viewBox="0 0 24 24" width="18" height="18"><path d="M23 4v6h-6" stroke-width="2"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke-width="2"></path></svg><span>اصلاح و بازنویسی</span></button></div>`; aiMessageElement.appendChild(actionsDiv); const currentChat = chats.find(chat => chat.id === currentChatId); if (currentChat) { const msgIndex = currentChat.messages.findIndex(m => m.id === messageId); if (msgIndex > -1) { currentChat.messages[msgIndex].text = `خطا: ${error.message}`; saveChatsDebounced(); } } }
-        async function continueStory(instruction = null) { const sendButton = document.querySelector('.send-button'); if (isGenerating || sendButton.disabled) { if (sendButton.disabled) { showNotification("لطفا صبر کنید، دستیار هوشمند هنوز آماده نشده.", "info"); } return; } const chatArea = document.getElementById('chat-area'); if (chats.length === 0) createNewChat(); const currentChat = chats.find(chat => chat.id === currentChatId); if (!settings.apiKey) { showNotification("لطفا ابتدا کلید API خود را در تنظیمات وارد کنید.", 'error'); return; } if (!currentChat.prompt) { showNotification("لطفا ابتدا یک پرامپت برای داستان خود وارد کنید.", 'error'); openPromptModal(); return; } isGenerating = true; sendButton.disabled = true; const isFirstMessage = currentChat.messages.length === 0; const messageId = messageIdCounter++; const messageGroup = document.createElement('div'); messageGroup.className = 'message-group'; messageGroup.setAttribute('data-group-id', messageId); const aiMessage = document.createElement('div'); aiMessage.className = `message ai-message rtl loading`; aiMessage.setAttribute('data-message-id', messageId); const timerSpan = document.createElement('span'); timerSpan.className = 'loading-timer'; aiMessage.textContent = 'در حال جستجو در حافظه... '; aiMessage.appendChild(timerSpan); messageGroup.appendChild(aiMessage); chatArea.appendChild(messageGroup); chatArea.scrollTop = chatArea.scrollHeight; currentChat.messages.push({ id: messageId, type: 'ai', text: 'در حال پردازش...' }); saveChatsDebounced(); const controller = new AbortController(); let seconds = 0; const timerInterval = setInterval(() => { seconds++; timerSpan.textContent = `(${seconds}s)`; }, 1000); activeGeneration = { messageId, chatId: currentChatId, messageGroup, controller, timerInterval }; const lastMessage = currentChat.messages.length > 1 ? currentChat.messages[currentChat.messages.length - 2].text : 'شروع داستان'; worker.postMessage({ type: 'get-context', payload: { chatId: currentChatId, queryText: instruction || `ادامه داستان بعد از: ${lastMessage}`, messageId: messageId, regenerationInstruction: instruction } }); }
-        async function regenerateStory(instruction) { if (isGenerating || currentRegenerateMessageId === null) return; const sendButton = document.querySelector('.send-button'); const chatArea = document.getElementById('chat-area'); const currentChat = chats.find(chat => chat.id === currentChatId); if (!settings.apiKey) { showNotification("لطفا ابتدا کلید API خود را در تنظیمات وارد کنید.", 'error'); return; } isGenerating = true; sendButton.disabled = true; const messageId = currentRegenerateMessageId; const messageGroup = document.querySelector(`.message-group[data-group-id="${messageId}"]`); if(!messageGroup) { console.error("Could not find message group to regenerate."); isGenerating = false; sendButton.disabled = false; return; } const aiMessage = messageGroup.querySelector('.ai-message'); aiMessage.className = `message ai-message rtl loading`; const timerSpan = document.createElement('span'); timerSpan.className = 'loading-timer'; aiMessage.textContent = 'در حال جستجو در حافظه... '; aiMessage.appendChild(timerSpan); chatArea.scrollTop = chatArea.scrollHeight; const messageIndex = currentChat.messages.findIndex(m => m.id === messageId); currentChat.messages[messageIndex].text = 'در حال پردازش...'; saveChatsDebounced(); const controller = new AbortController(); let seconds = 0; const timerInterval = setInterval(() => { seconds++; timerSpan.textContent = `(${seconds}s)`; }, 1000); activeGeneration = { messageId, chatId: currentChatId, messageGroup, controller, timerInterval }; const previousMessageText = messageIndex > 0 ? currentChat.messages[messageIndex - 1].text : 'شروع داستان'; worker.postMessage({ type: 'get-context', payload: { chatId: currentChatId, queryText: instruction, messageId: messageId, regenerationInstruction: instruction } }); }
+
+        function showNotification(message, type = 'info') {
+            const container = document.getElementById('notification-container');
+            const notification = document.createElement('div');
+            notification.className = `toast-notification ${type}`;
+            notification.textContent = message;
+            container.appendChild(notification);
+            
+            requestAnimationFrame(() => {
+                notification.classList.add('show');
+            });
+
+            setTimeout(() => {
+                notification.classList.remove('show');
+                notification.addEventListener('transitionend', () => {
+                    if (notification.parentElement === container) {
+                         container.removeChild(notification);
+                    }
+                }, { once: true });
+            }, 3000);
+        }
+
+        async function _callGeminiAPI(fullPrompt, apiKey, modelName, signal) {
+            const apiUrl = `https://generativelace.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ parts: [{ text: fullPrompt }] }] };
+            const response = await fetch(apiUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal });
+            if (!response.ok) {
+                const errorData = await response.json();
+                const errorMessage = errorData?.error?.message || `خطای ناشناخته با کد ${response.status}`;
+                switch (response.status) {
+                    case 400: throw new Error("درخواست ارسال شده به مدل هوش مصنوعی ناقص یا اشتباه است.");
+                    case 403: throw new Error("کلید API وارد شده نامعتبر است یا دسترسی لازم را ندارد.");
+                    case 429: throw new Error("تعداد درخواست‌ها به سرور هوش مصنوعی بیش از حد مجاز بوده است.");
+                    case 500: throw new Error("یک خطای داخلی در سرور هوش مصنوعی رخ داده است.");
+                    case 503: throw new Error("سرویس هوش مصنوعی در حال حاضر در دسترس نیست.");
+                    default: throw new Error(`خطای API: ${errorMessage}`);
+                }
+            }
+            const data = await response.json();
+            if (data.candidates && data.candidates[0].finishReason === 'SAFETY') {
+                throw new Error("تولید متن به دلیل فعال شدن فیلترهای ایمنی گوگل متوقف شد.");
+            }
+            const generatedText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!generatedText) throw new Error("پاسخ دریافتی از API خالی یا نامعتبر است.");
+            return generatedText;
+        }
+        
+        async function handleContextRetrieved(payload) {
+            const { context, messageId, regenerationInstruction } = payload;
+            const currentChat = chats.find(chat => chat.id === currentChatId);
+            if (!currentChat || !activeGeneration || activeGeneration.messageId !== messageId) return;
+
+            const aiMessageElement = activeGeneration.messageGroup.querySelector('.ai-message');
+            aiMessageElement.firstChild.textContent = 'در حال نوشتن داستان...';
+            
+            const lastMessageText = currentChat.messages.length > 0 ? currentChat.messages[currentChat.messages.length - 1].text : "این اولین بخش داستان است.";
+
+            let fullPrompt = `${currentChat.prompt}\n\n`;
+            if (context && context.length > 0) {
+                 fullPrompt += `## خلاصه و بخش‌های مرتبط قبلی داستان:\n${context}\n\n`;
+            }
+            fullPrompt += `## آخرین بخش نوشته شده از داستان:\n${lastMessageText}\n\n`;
+            
+            if(regenerationInstruction){
+                fullPrompt += `## دستورالعمل اصلاحی:\n${regenerationInstruction}\n\n## وظیفه:\nبر اساس دستورالعمل بالا، بخش آخر داستان را بازنویسی کن.\n`;
+            } else {
+                 fullPrompt += `## وظیفه:\nادامه داستان را بنویس.\n`;
+            }
+
+            try {
+                const generatedText = await _callGeminiAPI(fullPrompt, settings.apiKey, settings.selectedModel, activeGeneration.controller.signal);
+                
+                const messageIndex = currentChat.messages.findIndex(m => m.id === messageId);
+                if (messageIndex !== -1) {
+                    currentChat.messages[messageIndex].text = generatedText;
+                }
+                saveChatsDebounced();
+
+                const directionClass = isRTL(generatedText) ? 'rtl' : 'ltr';
+                aiMessageElement.className = `message ai-message ${directionClass}`;
+                aiMessageElement.innerHTML = '';
+                const messageBdi = document.createElement('bdi');
+                messageBdi.textContent = generatedText;
+                aiMessageElement.appendChild(messageBdi);
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'ai-message-actions';
+                actionsDiv.innerHTML = `<button class="options-button" onclick="toggleAiMessageMenu(event, this)"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 13C12.5523 13 13 12.5523 13 12C13 11.4477 12.5523 11 12 11C11.4477 11 11 11.4477 11 12C11 12.5523 11.4477 13 12 13Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 6C12.5523 6 13 5.55228 13 5C13 4.44772 12.5523 4 12 4C11.4477 4 11 4.44772 11 5C11 5.55228 11.4477 6 12 6Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 20C12.5523 20 13 19.5523 13 19C13 18.4477 12.5523 18 12 18C11.4477 18 11 18.4477 11 19C11 19.5523 11.4477 20 12 20Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="ai-message-context-menu"><button class="regenerate-action" onclick="openRegenerateModal(${messageId})" title="اصلاح و بازنویسی"><svg class="regenerate-svg" viewBox="0 0 24 24" width="18" height="18"><path d="M23 4v6h-6" stroke-width="2"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke-width="2"></path></svg><span>اصلاح و بازنویسی</span></button></div>`;
+                aiMessageElement.appendChild(actionsDiv);
+
+                worker.postMessage({ type: 'add-to-memory', payload: { chatId: currentChatId, messageId: messageId, text: generatedText } });
+
+            } catch(error) {
+                handleGenerationError(error, aiMessageElement, messageId);
+            } finally {
+                clearInterval(activeGeneration.timerInterval);
+                isGenerating = false;
+                activeGeneration = null;
+                document.querySelector('.send-button').disabled = false;
+            }
+        }
+        
+        function handleGenerationError(error, aiMessageElement, messageId) {
+             if (error.name === 'AbortError') {
+                console.log("Generation aborted by user.");
+                return;
+            }
+            console.error("Generation failed:", error);
+            aiMessageElement.className = 'message ai-message rtl error';
+            aiMessageElement.innerHTML = '';
+            const errorMessageBdi = document.createElement('bdi');
+            errorMessageBdi.textContent = `خطا: ${error.message}`;
+            aiMessageElement.appendChild(errorMessageBdi);
+            
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'ai-message-actions';
+            actionsDiv.innerHTML = `<button class="options-button" onclick="toggleAiMessageMenu(event, this)"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 13C12.5523 13 13 12.5523 13 12C13 11.4477 12.5523 11 12 11C11.4477 11 11 11.4477 11 12C11 12.5523 11.4477 13 12 13Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 6C12.5523 6 13 5.55228 13 5C13 4.44772 12.5523 4 12 4C11.4477 4 11 4.44772 11 5C11 5.55228 11.4477 6 12 6Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 20C12.5523 20 13 19.5523 13 19C13 18.4477 12.5523 18 12 18C11.4477 18 11 18.4477 11 19C11 19.5523 11.4477 20 12 20Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="ai-message-context-menu"><button class="regenerate-action" onclick="openRegenerateModal(${messageId})" title="اصلاح و بازنویسی"><svg class="regenerate-svg" viewBox="0 0 24 24" width="18" height="18"><path d="M23 4v6h-6" stroke-width="2"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke-width="2"></path></svg><span>اصلاح و بازنویسی</span></button></div>`;
+            aiMessageElement.appendChild(actionsDiv);
+
+            const currentChat = chats.find(chat => chat.id === currentChatId);
+            if (currentChat) {
+                const msgIndex = currentChat.messages.findIndex(m => m.id === messageId);
+                if (msgIndex > -1) {
+                    currentChat.messages[msgIndex].text = `خطا: ${error.message}`;
+                    saveChatsDebounced();
+                }
+            }
+        }
+        
+        async function continueStory(instruction = null) {
+            const sendButton = document.querySelector('.send-button');
+            if (isGenerating || sendButton.disabled) {
+                if (sendButton.disabled) {
+                    showNotification("لطفا صبر کنید، دستیار هوشمند هنوز آماده نشده.", "info");
+                }
+                return;
+            }
+            
+            const chatArea = document.getElementById('chat-area');
+            if (chats.length === 0) createNewChat();
+            
+            const currentChat = chats.find(chat => chat.id === currentChatId);
+            if (!settings.apiKey) {
+                showNotification("لطفا ابتدا کلید API خود را در تنظیمات وارد کنید.", 'error');
+                return;
+            }
+            if (!currentChat.prompt) {
+                showNotification("لطفا ابتدا یک پرامپت برای داستان خود وارد کنید.", 'error');
+                openPromptModal();
+                return;
+            }
+
+            isGenerating = true;
+            sendButton.disabled = true;
+
+            const isFirstMessage = currentChat.messages.length === 0;
+
+            const messageId = messageIdCounter++;
+            const messageGroup = document.createElement('div');
+            messageGroup.className = 'message-group';
+            messageGroup.setAttribute('data-group-id', messageId);
+
+            const aiMessage = document.createElement('div');
+            aiMessage.className = `message ai-message rtl loading`;
+            aiMessage.setAttribute('data-message-id', messageId);
+            const timerSpan = document.createElement('span');
+            timerSpan.className = 'loading-timer';
+            
+            aiMessage.textContent = 'در حال جستجو در حافظه... ';
+
+            aiMessage.appendChild(timerSpan);
+            messageGroup.appendChild(aiMessage);
+            chatArea.appendChild(messageGroup);
+            chatArea.scrollTop = chatArea.scrollHeight;
+            
+            currentChat.messages.push({ id: messageId, type: 'ai', text: 'در حال پردازش...' });
+            saveChatsDebounced();
+
+            const controller = new AbortController();
+            let seconds = 0;
+            const timerInterval = setInterval(() => { seconds++; timerSpan.textContent = `(${seconds}s)`; }, 1000);
+            activeGeneration = { messageId, chatId: currentChatId, messageGroup, controller, timerInterval };
+
+            const lastMessage = currentChat.messages.length > 1 ? currentChat.messages[currentChat.messages.length - 2].text : 'شروع داستان';
+            
+            worker.postMessage({ 
+                type: 'get-context', 
+                payload: { 
+                    chatId: currentChatId,
+                    queryText: instruction || `ادامه داستان بعد از: ${lastMessage}`,
+                    messageId: messageId,
+                    regenerationInstruction: instruction
+                } 
+            });
+        }
+        
+        async function regenerateStory(instruction) {
+             if (isGenerating || currentRegenerateMessageId === null) return;
+            const sendButton = document.querySelector('.send-button');
+            const chatArea = document.getElementById('chat-area');
+            
+            const currentChat = chats.find(chat => chat.id === currentChatId);
+            if (!settings.apiKey) {
+                showNotification("لطفا ابتدا کلید API خود را در تنظیمات وارد کنید.", 'error');
+                return;
+            }
+           
+            isGenerating = true;
+            sendButton.disabled = true;
+            
+            const messageId = currentRegenerateMessageId; 
+            const messageGroup = document.querySelector(`.message-group[data-group-id="${messageId}"]`);
+            if(!messageGroup) {
+                console.error("Could not find message group to regenerate.");
+                isGenerating = false;
+                sendButton.disabled = false;
+                return;
+            }
+            const aiMessage = messageGroup.querySelector('.ai-message');
+            
+            aiMessage.className = `message ai-message rtl loading`;
+            const timerSpan = document.createElement('span');
+            timerSpan.className = 'loading-timer';
+            aiMessage.textContent = 'در حال جستجو در حافظه... ';
+            aiMessage.appendChild(timerSpan);
+            chatArea.scrollTop = chatArea.scrollHeight;
+            
+            const messageIndex = currentChat.messages.findIndex(m => m.id === messageId);
+            currentChat.messages[messageIndex].text = 'در حال پردازش...';
+            saveChatsDebounced();
+
+            const controller = new AbortController();
+            let seconds = 0;
+            const timerInterval = setInterval(() => { seconds++; timerSpan.textContent = `(${seconds}s)`; }, 1000);
+            activeGeneration = { messageId, chatId: currentChatId, messageGroup, controller, timerInterval };
+
+            const previousMessageText = messageIndex > 0 ? currentChat.messages[messageIndex - 1].text : 'شروع داستان';
+            
+            worker.postMessage({ 
+                type: 'get-context', 
+                payload: { 
+                    chatId: currentChatId,
+                    queryText: instruction, 
+                    messageId: messageId,
+                    regenerationInstruction: instruction
+                } 
+            });
+        }
+
+        // --- All other functions (save, render, UI toggles, etc.) remain unchanged. ---
         function saveChats() { localStorage.setItem('chats', JSON.stringify(chats)); }
         function saveChatsDebounced() { clearTimeout(saveTimeout); saveTimeout = setTimeout(() => { saveChats(); console.log("Chat data saved."); }, 500); }
         function saveSettings() { localStorage.setItem('settings', JSON.stringify(settings)); }
         function isRTL(text) { const rtlRegex = /[\u0600-\u06FF\u0750-\u077F]/; return rtlRegex.test(text); }
-        function renderChatList() { const chatList = document.getElementById('chat-list'); chatList.innerHTML = ''; chats.forEach(chat => { const chatItem = document.createElement('div'); chatItem.className = 'chat-item'; chatItem.setAttribute('data-chat-id', chat.id); chatItem.setAttribute('draggable', 'true'); chatItem.classList.toggle('active', chat.id === currentChatId); chatItem.innerHTML = ` <div class="chat-title">${chat.title}</div> <div class="chat-actions"> <button class="edit-button" onclick="editChatTitle(${chat.id}, this)" title="ویرایش نام"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15.4998 5.49994L18.3282 8.32837M3 20.9997L3.04745 20.6675C3.21536 19.4922 3.29932 18.9045 3.49029 18.3558C3.65975 17.8689 3.89124 17.4059 4.17906 16.9783C4.50341 16.4963 4.92319 16.0765 5.76274 15.237L17.4107 3.58896C18.1918 2.80791 19.4581 2.80791 20.2392 3.58896C21.0202 4.37001 21.0202 5.63634 20.2392 6.41739L8.37744 18.2791C7.61579 19.0408 7.23497 19.4216 6.8012 19.7244C6.41618 19.9932 6.00093 20.2159 5.56398 20.3879C5.07171 20.5817 4.54375 20.6882 3.48793 20.9012L3 20.9997Z" stroke="#FF8300" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button> <button class="delete-button" onclick="deleteChat(${chat.id}, this)" title="حذف چت"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L17.1991 18.0129C17.129 19.065 17.0939 19.5911 16.8667 19.99C16.6666 20.3412 16.3648 20.6235 16.0011 20.7998C15.588 21 15.0607 21 14.0062 21H9.99377C8.93927 21 8.41202 21 7.99889 20.7998C7.63517 20.6235 7.33339 20.3412 7.13332 19.99C6.90607 19.5911 6.871 19.065 6.80086 18.0129L6 6M4 6H20M16 6L15.7294 5.18807C15.4671 4.40125 15.3359 4.00784 15.0927 3.71698C14.8779 3.46013 14.6021 3.26132 14.2905 3.13878C13.9376 3 13.523 3 12.6936 3H11.3064C10.477 3 10.0624 3 9.70951 3.13878C9.39792 3.26132 9.12208 3.46013 8.90729 3.71698C8.66405 4.00784 8.53292 4.40125 8.27064 5.18807L8 6M14 10V17M10 10V17" stroke="#d32f2f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button> </div> `; chatItem.querySelector('.chat-title').addEventListener('click', () => { loadChat(chat.id); setTimeout(() => { document.getElementById('chat-area').scrollTop = document.getElementById('chat-area').scrollHeight; }, 0); }); chatItem.addEventListener('dragstart', handleDragStart); chatItem.addEventListener('dragover', handleDragOver); chatItem.addEventListener('drop', handleDrop); chatItem.addEventListener('dragend', handleDragEnd); chatList.appendChild(chatItem); }); }
-        function loadChat(chatId) { currentChatId = chatId; const chatArea = document.getElementById('chat-area'); const chatTitleMain = document.getElementById('chat-title-main'); chatArea.innerHTML = ''; const chat = chats.find(c => c.id === chatId); if (chat) { chat.messages.forEach(message => { const messageGroup = document.createElement('div'); messageGroup.className = 'message-group'; messageGroup.setAttribute('data-group-id', message.id); const messageDiv = document.createElement('div'); const directionClass = isRTL(message.text) ? 'rtl' : 'ltr'; messageDiv.className = `message ai-message ${directionClass}`; messageDiv.setAttribute('data-message-id', message.id); if (message.text === 'در حال پردازش...') { messageDiv.classList.add('loading'); messageDiv.textContent = message.text; } else { const messageBdi = document.createElement('bdi'); messageBdi.textContent = message.text; messageDiv.appendChild(messageBdi); const actionsDiv = document.createElement('div'); actionsDiv.className = 'ai-message-actions'; if (message.text.startsWith('خطا:')) { messageDiv.classList.add('error'); } actionsDiv.innerHTML = `<button class="options-button" onclick="toggleAiMessageMenu(event, this)"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 13C12.5523 13 13 12.5523 13 12C13 11.4477 12.5523 11 12 11C11.4477 11 11 11.4477 11 12C11 12.5523 11.4477 13 12 13Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 6C12.5523 6 13 5.55228 13 5C13 4.44772 12.5523 4 12 4C11.4477 4 11 4.44772 11 5C11 5.55228 11.4477 6 12 6Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 20C12.5523 20 13 19.5523 13 19C13 18.4477 12.5523 18 12 18C11.4477 18 11 18.4477 11 19C11 19.5523 11.4477 20 12 20Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="ai-message-context-menu"><button class="regenerate-action" onclick="openRegenerateModal(${message.id})" title="اصلاح و بازنویسی"><svg class="regenerate-svg" viewBox="0 0 24 24" width="18" height="18"><path d="M23 4v6h-6" stroke-width="2"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke-width="2"></path></svg><span>اصلاح و بازنویسی</span></button></div>`; messageDiv.appendChild(actionsDiv); } messageGroup.appendChild(messageDiv); chatArea.appendChild(messageGroup); }); chatTitleMain.textContent = chat.title; chatTitleMain.ondblclick = () => editMainChatTitle(chatId); chatTitleMain.oncontextmenu = (e) => { e.preventDefault(); editMainChatTitle(chatId); }; } renderChatList(); }
+        
+        function renderChatList() {
+            const chatList = document.getElementById('chat-list');
+            chatList.innerHTML = '';
+            chats.forEach(chat => {
+                const chatItem = document.createElement('div');
+                chatItem.className = 'chat-item';
+                chatItem.setAttribute('data-chat-id', chat.id);
+                chatItem.setAttribute('draggable', 'true');
+                chatItem.classList.toggle('active', chat.id === currentChatId);
+                chatItem.innerHTML = ` <div class="chat-title">${chat.title}</div> <div class="chat-actions"> <button class="edit-button" onclick="editChatTitle(${chat.id}, this)" title="ویرایش نام"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15.4998 5.49994L18.3282 8.32837M3 20.9997L3.04745 20.6675C3.21536 19.4922 3.29932 18.9045 3.49029 18.3558C3.65975 17.8689 3.89124 17.4059 4.17906 16.9783C4.50341 16.4963 4.92319 16.0765 5.76274 15.237L17.4107 3.58896C18.1918 2.80791 19.4581 2.80791 20.2392 3.58896C21.0202 4.37001 21.0202 5.63634 20.2392 6.41739L8.37744 18.2791C7.61579 19.0408 7.23497 19.4216 6.8012 19.7244C6.41618 19.9932 6.00093 20.2159 5.56398 20.3879C5.07171 20.5817 4.54375 20.6882 3.48793 20.9012L3 20.9997Z" stroke="#FF8300" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button> <button class="delete-button" onclick="deleteChat(${chat.id}, this)" title="حذف چت"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L17.1991 18.0129C17.129 19.065 17.0939 19.5911 16.8667 19.99C16.6666 20.3412 16.3648 20.6235 16.0011 20.7998C15.588 21 15.0607 21 14.0062 21H9.99377C8.93927 21 8.41202 21 7.99889 20.7998C7.63517 20.6235 7.33339 20.3412 7.13332 19.99C6.90607 19.5911 6.871 19.065 6.80086 18.0129L6 6M4 6H20M16 6L15.7294 5.18807C15.4671 4.40125 15.3359 4.00784 15.0927 3.71698C14.8779 3.46013 14.6021 3.26132 14.2905 3.13878C13.9376 3 13.523 3 12.6936 3H11.3064C10.477 3 10.0624 3 9.70951 3.13878C9.39792 3.26132 9.12208 3.46013 8.90729 3.71698C8.66405 4.00784 8.53292 4.40125 8.27064 5.18807L8 6M14 10V17M10 10V17" stroke="#d32f2f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button> </div> `;
+                chatItem.querySelector('.chat-title').addEventListener('click', () => { loadChat(chat.id); setTimeout(() => { document.getElementById('chat-area').scrollTop = document.getElementById('chat-area').scrollHeight; }, 0); });
+                chatItem.addEventListener('dragstart', handleDragStart);
+                chatItem.addEventListener('dragover', handleDragOver);
+                chatItem.addEventListener('drop', handleDrop);
+                chatItem.addEventListener('dragend', handleDragEnd);
+                chatList.appendChild(chatItem);
+            });
+        }
+        
+        function loadChat(chatId) {
+            currentChatId = chatId;
+            const chatArea = document.getElementById('chat-area');
+            const chatTitleMain = document.getElementById('chat-title-main');
+            chatArea.innerHTML = '';
+            const chat = chats.find(c => c.id === chatId);
+            if (chat) {
+                chat.messages.forEach(message => {
+                    const messageGroup = document.createElement('div');
+                    messageGroup.className = 'message-group';
+                    messageGroup.setAttribute('data-group-id', message.id);
+                    
+                    const messageDiv = document.createElement('div');
+                    const directionClass = isRTL(message.text) ? 'rtl' : 'ltr';
+                    messageDiv.className = `message ai-message ${directionClass}`;
+                    messageDiv.setAttribute('data-message-id', message.id);
+
+                    if (message.text === 'در حال پردازش...') {
+                        messageDiv.classList.add('loading');
+                        messageDiv.textContent = message.text;
+                    } else {
+                        const messageBdi = document.createElement('bdi');
+                        messageBdi.textContent = message.text;
+                        messageDiv.appendChild(messageBdi);
+                        const actionsDiv = document.createElement('div');
+                        actionsDiv.className = 'ai-message-actions';
+                        if (message.text.startsWith('خطا:')) {
+                            messageDiv.classList.add('error');
+                        }
+                        actionsDiv.innerHTML = `<button class="options-button" onclick="toggleAiMessageMenu(event, this)"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 13C12.5523 13 13 12.5523 13 12C13 11.4477 12.5523 11 12 11C11.4477 11 11 11.4477 11 12C11 12.5523 11.4477 13 12 13Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 6C12.5523 6 13 5.55228 13 5C13 4.44772 12.5523 4 12 4C11.4477 4 11 4.44772 11 5C11 5.55228 11.4477 6 12 6Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 20C12.5523 20 13 19.5523 13 19C13 18.4477 12.5523 18 12 18C11.4477 18 11 18.4477 11 19C11 19.5523 11.4477 20 12 20Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="ai-message-context-menu"><button class="regenerate-action" onclick="openRegenerateModal(${message.id})" title="اصلاح و بازنویسی"><svg class="regenerate-svg" viewBox="0 0 24 24" width="18" height="18"><path d="M23 4v6h-6" stroke-width="2"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke-width="2"></path></svg><span>اصلاح و بازنویسی</span></button></div>`;
+                        messageDiv.appendChild(actionsDiv);
+                    }
+                    messageGroup.appendChild(messageDiv);
+                    chatArea.appendChild(messageGroup);
+                });
+                chatTitleMain.textContent = chat.title;
+                chatTitleMain.ondblclick = () => editMainChatTitle(chatId);
+                chatTitleMain.oncontextmenu = (e) => { e.preventDefault(); editMainChatTitle(chatId); };
+            }
+            renderChatList();
+        }
+
         function handleDragStart(e) { draggedChat = this; this.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', this.getAttribute('data-chat-id')); }
         function handleDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
         function handleDrop(e) { e.preventDefault(); const targetChat = this; const draggedId = parseInt(draggedChat.getAttribute('data-chat-id')); const targetId = parseInt(targetChat.getAttribute('data-chat-id')); if (draggedId !== targetId) { const draggedIndex = chats.findIndex(chat => chat.id === draggedId); const targetIndex = chats.findIndex(chat => chat.id === targetId); const [draggedItem] = chats.splice(draggedIndex, 1); chats.splice(targetIndex, 0, draggedItem); saveChatsDebounced(); renderChatList(); } }
@@ -379,7 +713,7 @@
         function findScrollAnchor() { const chatArea = document.getElementById('chat-area'); const chatAreaRect = chatArea.getBoundingClientRect(); const messageGroups = chatArea.querySelectorAll('.message-group'); let firstVisibleGroup = null; for (const group of messageGroups) { const groupRect = group.getBoundingClientRect(); if (groupRect.bottom > chatAreaRect.top && groupRect.top < chatAreaRect.bottom) { firstVisibleGroup = group; break; } } if (!firstVisibleGroup) return null; const groupRect = firstVisibleGroup.getBoundingClientRect(); const distanceScrolledIntoElement = chatAreaRect.top - groupRect.top; let scrollPercentage = 0; if (distanceScrolledIntoElement > 0) scrollPercentage = distanceScrolledIntoElement / groupRect.height; return { element: firstVisibleGroup, percentage: scrollPercentage }; }
         function restoreScrollPosition(anchor) { if (!anchor || !anchor.element) return; const chatArea = document.getElementById('chat-area'); const element = anchor.element; const elementTopRelativeToContainer = element.offsetTop; const newPixelOffset = element.offsetHeight * anchor.percentage; chatArea.scrollTop = elementTopRelativeToContainer + newPixelOffset; }
         function toggleReadingMode() { const main = document.getElementById('main'); const readingModeButton = document.getElementById('reading-mode-button'); const anchor = findScrollAnchor(); readingMode = !readingMode; main.classList.toggle('reading-mode', readingMode); function enterFullScreen() { const elem = document.documentElement; if (elem.requestFullscreen) { elem.requestFullscreen(); } else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); } } function exitFullScreen() { if (document.exitFullscreen) { document.exitFullscreen(); } else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); } } const eyeIconSVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15.0007 12C15.0007 13.6569 13.6576 15 12.0007 15C10.3439 15 9.00073 13.6569 9.00073 12C9.00073 10.3431 10.3439 9 12.0007 9C13.6576 9 15.0007 10.3431 15.0007 12Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.0012 5C7.52354 5 3.73326 7.94288 2.45898 12C3.73324 16.0571 7.52159 19 12.0012 19C16.4788 19 20.2691 16.0571 21.5434 12C20.2691 7.94291 16.4788 5 12.0012 5Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; const eyeSlashIconSVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.99902 3L20.999 21M9.8433 9.91364C9.32066 10.4536 8.99902 11.1892 8.99902 12C8.99902 13.6569 10.3422 15 11.999 15C12.8215 15 13.5667 14.669 14.1086 14.133M6.49902 6.64715C4.59972 7.90034 3.15305 9.78394 2.45703 12C3.73128 16.0571 7.52159 19 11.9992 19C13.9881 19 15.8414 18.4194 17.3988 17.4184M10.999 5.04939C11.328 5.01673 11.6617 5 11.9992 5C16.4769 5 20.2672 7.94291 21.5414 12C21.2607 12.894 20.8577 13.7338 20.3522 14.5" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; readingModeButton.innerHTML = readingMode ? eyeIconSVG : eyeSlashIconSVG; readingModeButton.title = readingMode ? 'خروج از حالت مطالعه' : 'حالت مطالعه'; if (readingMode) { enterFullScreen(); } else { exitFullScreen(); } requestAnimationFrame(() => { restoreScrollPosition(anchor); }); }
-        function toggleSettingsWindow() { const settingsWindow = document.getElementById('settings-window'); const apiKeyInput = document.getElementById('api-key-input'); if (settingsWindow.classList.contains('open')) { saveSettingsData(); settingsWindow.classList.remove('open'); } else { settingsWindow.classList.add('open'); apiKeyInput.value = settings.apiKey || ''; if(document.getElementById(settings.selectedModel)) document.getElementById(settings.selectedModel).checked = true; apiKeyInput.focus(); document.querySelectorAll('.radio-wrapper').forEach(wrapper => { wrapper.addEventListener('click', function() { const input = this.querySelector('input[type="radio"]'); if (input && !input.checked) { input.checked = true; saveSettingsData(); } }); }); }
+        function toggleSettingsWindow() { const settingsWindow = document.getElementById('settings-window'); const apiKeyInput = document.getElementById('api-key-input'); if (settingsWindow.classList.contains('open')) { saveSettingsData(); settingsWindow.classList.remove('open'); } else { settingsWindow.classList.add('open'); apiKeyInput.value = settings.apiKey || ''; if(document.getElementById(settings.selectedModel)) document.getElementById(settings.selectedModel).checked = true; apiKeyInput.focus(); document.querySelectorAll('.radio-wrapper').forEach(wrapper => { wrapper.addEventListener('click', function() { const input = this.querySelector('input[type="radio"]'); if (input && !input.checked) { input.checked = true; saveSettingsData(); } }); }); } }
         function saveSettingsData() { const apiKeyInput = document.getElementById('api-key-input'); const selectedModelInput = document.querySelector('input[name="ai-model"]:checked'); settings.apiKey = apiKeyInput.value.trim(); if(selectedModelInput) settings.selectedModel = selectedModelInput.value; saveSettings(); }
         function toggleAboutUs() { aboutUsActive = !aboutUsActive; const sidebarMain = document.querySelector('.sidebar-main'); const aboutUsContent = document.querySelector('.about-us-content'); const aboutUsButton = document.querySelector('.about-us-button'); aboutUsButton.classList.toggle('active', aboutUsActive); if (aboutUsActive) { sidebarMain.style.display = 'none'; aboutUsContent.style.display = 'flex'; } else { sidebarMain.style.display = 'block'; aboutUsContent.style.display = 'none'; } }
         function editMainChatTitle(chatId) { const chatTitleMain = document.getElementById('chat-title-main'); const currentTitle = chatTitleMain.textContent; chatTitleMain.innerHTML = `<input type="text" value="${currentTitle}" />`; const input = chatTitleMain.querySelector('input'); input.focus(); input.setSelectionRange(input.value.length, input.value.length); input.onblur = () => saveMainChatTitle(chatId, input.value); input.onkeypress = (e) => { if (e.key === 'Enter') saveMainChatTitle(chatId, input.value); }; }
