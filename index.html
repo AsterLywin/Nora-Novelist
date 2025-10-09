@@ -14,7 +14,7 @@
         .main { width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; position: relative; }
         .main.reading-mode { background-color: #202020; }
         .top-bar { display: flex; align-items: center; padding: 5px 15px; position: absolute; top: 0; left: 0; right: 0; height: 30px; background-color: #161b22; border-bottom: 2px solid #484f58; z-index: 15; box-sizing: content-box; }
-        .chat-area { flex: 1; width: 100%; height: 100%; padding: 20px; padding-top: 72px; padding-bottom: 80px; /* Increased padding to avoid overlap */ overflow-y: auto; scroll-padding-top: 72px; display: flex; flex-direction: column; box-sizing: border-box; }
+        .chat-area { flex: 1; width: 100%; height: 100%; padding: 20px; padding-top: 72px; padding-bottom: 80px; overflow-y: auto; scroll-padding-top: 72px; display: flex; flex-direction: column; box-sizing: border-box; }
         .message-group { margin-bottom: 20px; display: flex; flex-direction: column; width: 100%; position: relative; }
         .message-group:not(:last-child)::after { content: ''; display: block; width: 95%; height: 2px; background-color: #484f58; margin: 10px auto 0; }
         .message { margin-bottom: 5px; line-height: 1.5; position: relative; display: block; width: fit-content; }
@@ -24,14 +24,12 @@
         .ai-message.loading::after { content: ''; display: inline-block; width: 12px; height: 12px; border: 2px solid #2563eb; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 8px; vertical-align: middle; }
         .loading-timer { margin-right: 5px; font-weight: bold; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        
         .input-area { position: absolute; bottom: 0; left: 0; right: 0; pointer-events: none; }
         .input-wrapper { display: flex; justify-content: flex-start; padding: 15px 20px; }
         .input-area .send-button { width: 50px; height: 50px; background-color: #2563eb; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25); transition: background-color 0.2s; pointer-events: auto; }
         .input-area .send-button:hover { background-color: #4a8bff; }
         .send-button svg { width: 24px; height: 24px; }
         .input-area .send-button:disabled { background-color: #6b7280; cursor: not-allowed; }
-
         .menu-button { position: static; background-color: #2563eb; border: none; border-radius: 5px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; }
         .menu-button.hidden { opacity: 0; pointer-events: none; }
         .menu-button:hover { background-color: #4a8bff; }
@@ -45,20 +43,20 @@
         .sidebar { position: absolute; top: 0; right: -100%; width: 50%; height: 100%; padding: 15px; border-left: 1px solid #30363d; transition: right 0.3s ease, visibility 0.3s; visibility: hidden; z-index: 20; background-color: #161b22; }
         .sidebar.open { right: 0; visibility: visible; }
         .sidebar h2 { font-size: 16px; margin: 10px 0 15px; font-weight: normal; color: #c9d1d9; }
-        .sidebar-actions { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 15px; } /* Changed to 6 columns */
+        .sidebar-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(35px, 1fr)); gap: 10px; margin-bottom: 15px; }
         .sidebar-actions button { width: 100%; height: 35px; border: none; border-radius: 5px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .sidebar-actions .prompt-button,
-        .sidebar-actions .upload-button, /* New button style */
+        .sidebar-actions .upload-button,
         .sidebar-actions .new-chat-button,
         .sidebar-actions .settings-button,
         .sidebar-actions .about-us-button { background-color: #2563eb; }
         .sidebar-actions .prompt-button:hover,
-        .sidebar-actions .upload-button:hover, /* New button style */
+        .sidebar-actions .upload-button:hover,
         .sidebar-actions .new-chat-button:hover,
         .sidebar-actions .settings-button:hover,
         .sidebar-actions .about-us-button:hover { background-color: #4a8bff; }
         .sidebar-actions .prompt-button svg,
-        .sidebar-actions .upload-button svg { stroke: #ffffff; } /* New button style */
+        .sidebar-actions .upload-button svg { stroke: #ffffff; }
         .sidebar-actions .clear-chat-button { background-color: #d32f2f; }
         .sidebar-actions .clear-chat-button:hover { background-color: #f44336; }
         .sidebar-actions .about-us-button.active { opacity: 0.6; }
@@ -304,7 +302,6 @@
     <input type="file" id="import-file-input" style="display: none;" accept=".nora,.json">
 
     <script>
-        // Web Worker Initialization and State Handling
         let worker;
         if (window.Worker) {
             worker = new Worker('./worker.js', { type: 'module' }); 
@@ -345,15 +342,17 @@
             alert('مرورگر شما از Web Workers پشتیبانی نمی‌کند. عملکرد برنامه ممکن است مختل شود.');
         }
 
-        // --- All other variables and functions ---
-        
         let chats = [];
         try {
-            chats = JSON.parse(localStorage.getItem('chats')) || [];
+            chats = JSON.parse(localStorage.getItem('nora_writer_chats')) || [];
         } catch (e) {
             console.error("Could not parse chats from localStorage:", e);
             chats = [];
         }
+        
+        chats.forEach(chat => {
+            chat.messages = chat.messages.filter(message => message.text !== 'در حال پردازش...');
+        });
         
         let currentChatId = chats.length > 0 ? chats[chats.length - 1].id : 0;
         let readingMode = false;
@@ -361,7 +360,7 @@
         
         let settings = {};
         try {
-            settings = JSON.parse(localStorage.getItem('settings')) || { apiKey: '', selectedModel: 'gemini-2.0-flash' };
+            settings = JSON.parse(localStorage.getItem('nora_writer_settings')) || { apiKey: '', selectedModel: 'gemini-2.0-flash' };
         } catch (e) {
             console.error("Could not parse settings from localStorage:", e);
             settings = { apiKey: '', selectedModel: 'gemini-2.0-flash' };
@@ -397,7 +396,7 @@
         }
 
         async function _callGeminiAPI(fullPrompt, apiKey, modelName, signal) {
-            const apiUrl = `https://generativelace.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
             const payload = { contents: [{ parts: [{ text: fullPrompt }] }] };
             const response = await fetch(apiUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal });
             if (!response.ok) {
@@ -435,7 +434,6 @@
                  fullPrompt += `## خلاصه و بخش‌های مرتبط قبلی داستان:\n${context}\n\n`;
             }
 
-            // If it's not the very first message, add the last written part.
             if (currentChat.messages.length > 1) {
                 const lastMessageText = currentChat.messages[currentChat.messages.length - 2].text;
                 fullPrompt += `## آخرین بخش نوشته شده از داستان:\n${lastMessageText}\n\n`;
@@ -443,9 +441,9 @@
             
             if(regenerationInstruction){
                 fullPrompt += `## دستورالعمل اصلاحی:\n${regenerationInstruction}\n\n## وظیفه:\nبر اساس دستورالعمل بالا، بخش آخر داستان را بازنویسی کن.\n`;
-            } else if (currentChat.messages.length <= 1) { // It's the first message
+            } else if (currentChat.messages.length <= 1) {
                  fullPrompt += `## وظیفه:\nبر اساس پرامپت اصلی، بخش اول این داستان را بنویس.\n`;
-            } else { // It's a continuation
+            } else {
                  fullPrompt += `## وظیفه:\nادامه داستان را بنویس.\n`;
             }
 
@@ -562,7 +560,6 @@
             activeGeneration = { messageId, chatId: currentChatId, messageGroup, controller, timerInterval };
 
             if (isFirstMessage) {
-                // If it's the first message, bypass context retrieval and go straight to generation.
                 handleContextRetrieved({ 
                     context: '', 
                     messageId: messageId, 
@@ -635,7 +632,6 @@
             });
         }
 
-        // --- NEW --- Book/Chat Management Functions
         function downloadChat(chatId) {
             const chat = chats.find(c => c.id === chatId);
             if (!chat) return;
@@ -643,7 +639,7 @@
             const bookData = {
                 title: chat.title,
                 prompt: chat.prompt,
-                messages: chat.messages.map(m => ({ text: m.text })) // Export only message text
+                messages: chat.messages.map(m => ({ text: m.text }))
             };
 
             const blob = new Blob([JSON.stringify(bookData, null, 2)], { type: 'application/json' });
@@ -687,7 +683,7 @@
                         title: bookData.title,
                         prompt: bookData.prompt,
                         messages: bookData.messages
-                            .filter(msg => msg.text !== 'در حال پردازش...') // Filter out incomplete messages
+                            .filter(msg => msg.text !== 'در حال پردازش...')
                             .map(msg => ({
                                 id: messageIdCounterForImport++,
                                 type: 'ai',
@@ -717,15 +713,15 @@
                     showNotification(`خطا در آپلود کتاب: ${err.message}`, 'error');
                     console.error("Import failed:", err);
                 } finally {
-                    event.target.value = ''; // Reset input to allow re-uploading the same file
+                    event.target.value = '';
                 }
             };
             reader.readAsText(file);
         }
 
-        function saveChats() { localStorage.setItem('chats', JSON.stringify(chats)); }
+        function saveChats() { localStorage.setItem('nora_writer_chats', JSON.stringify(chats)); }
         function saveChatsDebounced() { clearTimeout(saveTimeout); saveTimeout = setTimeout(() => { saveChats(); console.log("Chat data saved."); }, 500); }
-        function saveSettings() { localStorage.setItem('settings', JSON.stringify(settings)); }
+        function saveSettings() { localStorage.setItem('nora_writer_settings', JSON.stringify(settings)); }
         function isRTL(text) { const rtlRegex = /[\u0600-\u06FF\u0750-\u077F]/; return rtlRegex.test(text); }
         
         function renderChatList() {
@@ -784,21 +780,16 @@
                     messageDiv.className = `message ai-message ${directionClass}`;
                     messageDiv.setAttribute('data-message-id', message.id);
 
-                    if (message.text === 'در حال پردازش...') {
-                        messageDiv.classList.add('loading');
-                        messageDiv.textContent = message.text;
-                    } else {
-                        const messageBdi = document.createElement('bdi');
-                        messageBdi.textContent = message.text;
-                        messageDiv.appendChild(messageBdi);
-                        const actionsDiv = document.createElement('div');
-                        actionsDiv.className = 'ai-message-actions';
-                        if (message.text.startsWith('خطا:')) {
-                            messageDiv.classList.add('error');
-                        }
-                        actionsDiv.innerHTML = `<button class="options-button" onclick="toggleAiMessageMenu(event, this)"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 13C12.5523 13 13 12.5523 13 12C13 11.4477 12.5523 11 12 11C11.4477 11 11 11.4477 11 12C11 12.5523 11.4477 13 12 13Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 6C12.5523 6 13 5.55228 13 5C13 4.44772 12.5523 4 12 4C11.4477 4 11 4.44772 11 5C11 5.55228 11.4477 6 12 6Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 20C12.5523 20 13 19.5523 13 19C13 18.4477 12.5523 18 12 18C11.4477 18 11 18.4477 11 19C11 19.5523 11.4477 20 12 20Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="ai-message-context-menu"><button class="regenerate-action" onclick="openRegenerateModal(${message.id})" title="اصلاح و بازنویسی"><svg class="regenerate-svg" viewBox="0 0 24 24" width="18" height="18"><path d="M23 4v6h-6" stroke-width="2"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke-width="2"></path></svg><span>اصلاح و بازنویسی</span></button></div>`;
-                        messageDiv.appendChild(actionsDiv);
+                    const messageBdi = document.createElement('bdi');
+                    messageBdi.textContent = message.text;
+                    messageDiv.appendChild(messageBdi);
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'ai-message-actions';
+                    if (message.text.startsWith('خطا:')) {
+                        messageDiv.classList.add('error');
                     }
+                    actionsDiv.innerHTML = `<button class="options-button" onclick="toggleAiMessageMenu(event, this)"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 13C12.5523 13 13 12.5523 13 12C13 11.4477 12.5523 11 12 11C11.4477 11 11 11.4477 11 12C11 12.5523 11.4477 13 12 13Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 6C12.5523 6 13 5.55228 13 5C13 4.44772 12.5523 4 12 4C11.4477 4 11 4.44772 11 5C11 5.55228 11.4477 6 12 6Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 20C12.5523 20 13 19.5523 13 19C13 18.4477 12.5523 18 12 18C11.4477 18 11 18.4477 11 19C11 19.5523 11.4477 20 12 20Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="ai-message-context-menu"><button class="regenerate-action" onclick="openRegenerateModal(${message.id})" title="اصلاح و بازنویسی"><svg class="regenerate-svg" viewBox="0 0 24 24" width="18" height="18"><path d="M23 4v6h-6" stroke-width="2"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke-width="2"></path></svg><span>اصلاح و بازنویسی</span></button></div>`;
+                    messageDiv.appendChild(actionsDiv);
                     messageGroup.appendChild(messageDiv);
                     chatArea.appendChild(messageGroup);
                 });
@@ -829,7 +820,7 @@
         function deleteChat(chatId, button) { const chatItem = button.closest('.chat-item'); if (chatItem.classList.contains('delete-pending')) { chats = chats.filter(chat => chat.id !== chatId); saveChatsDebounced(); renderChatList(); worker.postMessage({ type: 'delete-collection', payload: { chatId } }); if (activeGeneration && activeGeneration.chatId === chatId) { activeGeneration.controller.abort(); } if (currentChatId === chatId) { const chatArea = document.getElementById('chat-area'); const chatTitleMain = document.getElementById('chat-title-main'); chatArea.innerHTML = ''; if (chats.length === 0) chatTitleMain.textContent = ''; else { currentChatId = chats[chats.length - 1].id; loadChat(currentChatId); setTimeout(() => { document.getElementById('chat-area').scrollTop = document.getElementById('chat-area').scrollHeight; }, 0); } } } else { document.querySelectorAll('.chat-item.delete-pending').forEach(item => { item.classList.remove('delete-pending'); item.style.border = ''; item.style.boxShadow = ''; }); chatItem.classList.add('delete-pending'); chatItem.style.border = '2px solid #d32f2f'; chatItem.style.boxShadow = 'inset 0 0 10px rgba(211, 47, 47, 0.5)'; } }
         function toggleMenu() { const sidebar = document.getElementById('sidebar'); const menuButton = document.querySelector('.menu-button'); const isOpen = sidebar.classList.contains('open'); sidebar.classList.toggle('open'); menuButton.classList.toggle('hidden', !isOpen); if (!isOpen && aboutUsActive) toggleAboutUs(); }
         function toggleAiMessageMenu(event, buttonElement) { event.stopPropagation(); const menu = buttonElement.nextElementSibling; const isCurrentlyShown = menu.classList.contains('show'); document.querySelectorAll('.ai-message-context-menu.show').forEach(openMenu => { openMenu.classList.remove('show'); }); if (!isCurrentlyShown) { menu.classList.add('show'); } }
-        function openPromptModal() { let currentChat = chats.find(c => c.id === currentChatId); if (!currentChat) { createNewChat(); currentChat = chats.find(c => c.id === currentChatId); } const modal = document.getElementById('prompt-modal'); const textarea = document.getElementById('prompt-modal-textarea'); textarea.value = currentChat.prompt || ''; modal.style.display = 'flex'; textarea.focus(); }
+        function openPromptModal() { if (chats.length === 0) createNewChat(); let currentChat = chats.find(c => c.id === currentChatId); const modal = document.getElementById('prompt-modal'); const textarea = document.getElementById('prompt-modal-textarea'); textarea.value = currentChat.prompt || ''; modal.style.display = 'flex'; textarea.focus(); }
         function closePromptModal() { document.getElementById('prompt-modal').style.display = 'none'; }
         function savePrompt() { const currentChat = chats.find(c => c.id === currentChatId); if(currentChat) { const textarea = document.getElementById('prompt-modal-textarea'); currentChat.prompt = textarea.value.trim(); saveChatsDebounced(); showNotification('پرامپت ذخیره شد.', 'success'); } closePromptModal(); }
         function openRegenerateModal(messageId) { currentRegenerateMessageId = messageId; const modal = document.getElementById('regenerate-modal'); const textarea = document.getElementById('regenerate-modal-textarea'); textarea.value = ''; modal.style.display = 'flex'; textarea.focus(); }
@@ -837,20 +828,7 @@
         function confirmRegeneration() { const textarea = document.getElementById('regenerate-modal-textarea'); const instruction = textarea.value.trim(); if (instruction) { regenerateStory(instruction); } else { showNotification('لطفا یک دستورالعمل برای بازنویسی وارد کنید.', 'error'); } closeRegenerateModal(); }
         document.addEventListener('click', function(e) { const sidebar = document.getElementById('sidebar'); const menuButton = document.querySelector('.menu-button'); const settingsWindow = document.getElementById('settings-window'); const settingsButton = document.querySelector('.settings-button'); const chatTitleMain = document.getElementById('chat-title-main'); const isSidebarOpen = sidebar.classList.contains('open'); const isSettingsWindowOpen = settingsWindow.classList.contains('open'); if (isSidebarOpen && !sidebar.contains(e.target) && !menuButton.contains(e.target)) { sidebar.classList.remove('open'); menuButton.classList.remove('hidden'); if (aboutUsActive) toggleAboutUs(); } if (isSettingsWindowOpen && !settingsWindow.contains(e.target) && !settingsButton.contains(e.target)) { saveSettingsData(); settingsWindow.classList.remove('open'); } document.querySelectorAll('.chat-item.delete-pending').forEach(item => { if (!item.contains(e.target)) { item.classList.remove('delete-pending'); item.style.border = ''; item.style.boxShadow = ''; } }); if (chatTitleMain.querySelector('input') && !chatTitleMain.contains(e.target)) { const input = chatTitleMain.querySelector('input'); saveMainChatTitle(currentChatId, input.value); } document.querySelectorAll('.ai-message-context-menu.show').forEach(openMenu => { if (!openMenu.closest('.message').contains(e.target)) { openMenu.classList.remove('show'); } }); });
         document.addEventListener('keydown', function(e) { if (e.ctrlKey && e.key === 'Enter') continueStory(); });
-        document.addEventListener('DOMContentLoaded', () => {
-            renderChatList();
-            if (chats.length > 0) {
-                loadChat(currentChatId);
-                setTimeout(() => { document.getElementById('chat-area').scrollTop = document.getElementById('chat-area').scrollHeight; }, 0);
-            }
-            document.getElementById('confirm-prompt-btn').onclick = savePrompt;
-            document.getElementById('cancel-prompt-btn').onclick = closePromptModal;
-            document.getElementById('prompt-modal').onclick = (e) => { if (e.target.id === 'prompt-modal') closePromptModal(); };
-            document.getElementById('confirm-regenerate-btn').onclick = confirmRegeneration;
-            document.getElementById('cancel-regenerate-btn').onclick = closeRegenerateModal;
-            document.getElementById('regenerate-modal').onclick = (e) => { if (e.target.id === 'regenerate-modal') closeRegenerateModal(); };
-            document.getElementById('import-file-input').addEventListener('change', importBook);
-        });
+        document.addEventListener('DOMContentLoaded', () => { renderChatList(); if (chats.length > 0) { loadChat(currentChatId); setTimeout(() => { document.getElementById('chat-area').scrollTop = document.getElementById('chat-area').scrollHeight; }, 0); } document.getElementById('confirm-prompt-btn').onclick = savePrompt; document.getElementById('cancel-prompt-btn').onclick = closePromptModal; document.getElementById('prompt-modal').onclick = (e) => { if (e.target.id === 'prompt-modal') closePromptModal(); }; document.getElementById('confirm-regenerate-btn').onclick = confirmRegeneration; document.getElementById('cancel-regenerate-btn').onclick = closeRegenerateModal; document.getElementById('regenerate-modal').onclick = (e) => { if (e.target.id === 'regenerate-modal') closeRegenerateModal(); }; document.getElementById('import-file-input').addEventListener('change', importBook); });
         if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('./service-worker.js?v=' + new Date().getTime()).then(registration => { console.log('Nora PWA ServiceWorker registered successfully.'); }).catch(err => { console.error('ServiceWorker registration failed: ', err); }); }); }
     </script>
 </body>
