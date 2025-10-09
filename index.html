@@ -14,7 +14,7 @@
         .main { width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; position: relative; }
         .main.reading-mode { background-color: #202020; }
         .top-bar { display: flex; align-items: center; padding: 5px 15px; position: absolute; top: 0; left: 0; right: 0; height: 30px; background-color: #161b22; border-bottom: 2px solid #484f58; z-index: 15; box-sizing: content-box; }
-        .chat-area { flex: 1; width: 100%; height: 100%; padding: 20px; padding-top: 72px; overflow-y: auto; scroll-padding-top: 72px; display: flex; flex-direction: column; box-sizing: border-box; }
+        .chat-area { flex: 1; width: 100%; height: 100%; padding: 20px; padding-top: 72px; padding-bottom: 80px; /* Increased padding to avoid overlap */ overflow-y: auto; scroll-padding-top: 72px; display: flex; flex-direction: column; box-sizing: border-box; }
         .message-group { margin-bottom: 20px; display: flex; flex-direction: column; width: 100%; position: relative; }
         .message-group:not(:last-child)::after { content: ''; display: block; width: 95%; height: 2px; background-color: #484f58; margin: 10px auto 0; }
         .message { margin-bottom: 5px; line-height: 1.5; position: relative; display: block; width: fit-content; }
@@ -25,49 +25,36 @@
         .loading-timer { margin-right: 5px; font-weight: bold; }
         @keyframes spin { to { transform: rotate(360deg); } }
         
-        /* --- CHANGED: Input Area Layout --- */
+        /* --- CORRECTED: Input Area Layout for floating button on the RIGHT --- */
         .input-area {
-            padding: 8px 15px; /* Reduced vertical padding */
-            border-top: 1px solid #30363d;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            pointer-events: none; /* Allows scrolling through the empty area */
         }
         .input-wrapper {
             display: flex;
-            align-items: center;
-            justify-content: center; /* Center the group of buttons */
-            gap: 15px; /* Add space between buttons */
+            justify-content: flex-start; /* Corrected: flex-start aligns to the right in RTL */
+            padding: 15px 20px;
         }
         .input-area .send-button {
-            width: 180px; /* Increased width for better text fit */
-            height: 44px;
+            width: 50px;
+            height: 50px;
             background-color: #2563eb;
-            border: none;
-            border-radius: 22px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'Iran Yekan', sans-serif;
-            color: white;
-            font-size: 16px;
-            gap: 10px;
-            order: 2; /* Prompt button comes first */
-        }
-        .input-area .prompt-button {
-            width: 44px; /* Make it a circle */
-            height: 44px;
-            background-color: #30363d; /* Different color for secondary action */
             border: none;
             border-radius: 50%;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            order: 1; /* Prompt button comes first */
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+            transition: background-color 0.2s;
+            pointer-events: auto; /* Re-enable pointer events for the button itself */
         }
-        .input-area .prompt-button:hover { background-color: #484f58; }
         .input-area .send-button:hover { background-color: #4a8bff; }
-        .send-button svg, .prompt-button svg { width: 22px; height: 22px; }
-        .input-area .send-button:disabled, .input-area .prompt-button:disabled { background-color: #6b7280; cursor: not-allowed; }
+        .send-button svg { width: 24px; height: 24px; }
+        .input-area .send-button:disabled { background-color: #6b7280; cursor: not-allowed; }
         /* --- END OF CHANGES --- */
 
         .menu-button { position: static; background-color: #2563eb; border: none; border-radius: 5px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; }
@@ -83,8 +70,11 @@
         .sidebar { position: absolute; top: 0; right: -100%; width: 50%; height: 100%; padding: 15px; border-left: 1px solid #30363d; transition: right 0.3s ease, visibility 0.3s; visibility: hidden; z-index: 20; background-color: #161b22; }
         .sidebar.open { right: 0; visibility: visible; }
         .sidebar h2 { font-size: 16px; margin: 10px 0 15px; font-weight: normal; color: #c9d1d9; }
-        .sidebar-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 15px; }
+        .sidebar-actions { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 15px; }
         .sidebar-actions button { width: 100%; height: 35px; border: none; border-radius: 5px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .sidebar-actions .prompt-button { background-color: #2563eb; }
+        .sidebar-actions .prompt-button:hover { background-color: #4a8bff; }
+        .sidebar-actions .prompt-button svg { stroke: #ffffff; }
         .sidebar-actions .new-chat-button { background-color: #2563eb; }
         .sidebar-actions .new-chat-button:hover { background-color: #4a8bff; }
         .sidebar-actions .clear-chat-button { background-color: #d32f2f; }
@@ -155,8 +145,7 @@
         .ai-message-context-menu button.regenerate-action .regenerate-svg { stroke: #38bdf8; }
         .main.reading-mode .top-bar { background-color: #202020; }
         .main.reading-mode .chat-area { padding: 0; padding-top: 62px; scroll-padding-top: 62px; }
-        .main.reading-mode .menu-button, .main.reading-mode .ai-message-actions, .main.reading-mode .input-wrapper { display: none !important; }
-        .main.reading-mode .input-area { border-width: 0; padding: 0; }
+        .main.reading-mode .menu-button, .main.reading-mode .ai-message-actions, .main.reading-mode .input-area { display: none !important; }
         .main.reading-mode .ai-message.rtl, .main.reading-mode .ai-message.ltr { width: 90%; margin: 0 auto 10px; padding: 10px 15px; color: #b7b7b7; text-align: right; }
         #notification-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; flex-direction: column; align-items: center; gap: 10px; }
         .toast-notification { font-family: 'Iran Yekan', sans-serif; padding: 10px 20px; border-radius: 8px; color: #ffffff; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); opacity: 0; transform: translateY(-20px); transition: opacity 0.3s ease, transform 0.3s ease; }
@@ -197,14 +186,7 @@
         
         <div class="input-area">
             <div class="input-wrapper">
-                <button class="prompt-button" onclick="openPromptModal()" title="ویرایش پرامپت">
-                    <!-- --- CHANGED: New reliable SVG icon for the prompt button --- -->
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-                    </svg>
-                </button>
-                <button class="send-button" onclick="continueStory()" title="ادامه داستان (Ctrl+Enter)">
-                    <span>ادامه داستان</span>
+                <button class="send-button" onclick="continueStory()" title="شروع / ادامه داستان (Ctrl+Enter)">
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M11.5003 12H5.41872M5.24634 12.7972L4.24158 15.7986C3.69128 17.4424 3.41613 18.2643 3.61359 18.7704C3.78506 19.21 4.15335 19.5432 4.6078 19.6701C5.13111 19.8161 5.92151 19.4604 7.50231 18.7491L17.6367 14.1886C19.1797 13.4942 19.9512 13.1471 20.1896 12.6648C20.3968 12.2458 20.3968 11.7541 20.1896 11.3351C19.9512 10.8529 19.1797 10.5057 17.6367 9.81135L7.48483 5.24303C5.90879 4.53382 5.12078 4.17921 4.59799 4.32468C4.14397 4.45101 3.77572 4.78336 3.60365 5.22209C3.40551 5.72728 3.67772 6.54741 4.22215 8.18767L5.24829 11.2793C5.34179 11.561 5.38855 11.7019 5.407 11.8459C5.42338 11.9738 5.42321 12.1032 5.40651 12.231C5.38768 12.375 5.34057 12.5157 5.24634 12.7972Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
@@ -216,6 +198,11 @@
             <div class="sidebar-content" id="sidebar-content">
                 <div class="sidebar-main">
                     <div class="sidebar-actions">
+                        <button class="prompt-button" onclick="openPromptModal()" title="ویرایش پرامپت">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                            </svg>
+                        </button>
                         <button class="about-us-button" onclick="toggleAboutUs()" title="درباره ما">
                             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -537,6 +524,8 @@
             isGenerating = true;
             sendButton.disabled = true;
 
+            const isFirstMessage = currentChat.messages.length === 0;
+
             const messageId = messageIdCounter++;
             const messageGroup = document.createElement('div');
             messageGroup.className = 'message-group';
@@ -547,7 +536,9 @@
             aiMessage.setAttribute('data-message-id', messageId);
             const timerSpan = document.createElement('span');
             timerSpan.className = 'loading-timer';
-            aiMessage.textContent = 'در حال جستجو در حافظه... ';
+            
+            aiMessage.textContent = isFirstMessage ? 'در حال آماده‌سازی داستان...' : 'در حال جستجو در حافظه... ';
+
             aiMessage.appendChild(timerSpan);
             messageGroup.appendChild(aiMessage);
             chatArea.appendChild(messageGroup);
@@ -698,14 +689,13 @@
         function handleDrop(e) { e.preventDefault(); const targetChat = this; const draggedId = parseInt(draggedChat.getAttribute('data-chat-id')); const targetId = parseInt(targetChat.getAttribute('data-chat-id')); if (draggedId !== targetId) { const draggedIndex = chats.findIndex(chat => chat.id === draggedId); const targetIndex = chats.findIndex(chat => chat.id === targetId); const [draggedItem] = chats.splice(draggedIndex, 1); chats.splice(targetIndex, 0, draggedItem); saveChatsDebounced(); renderChatList(); } }
         function handleDragEnd() { this.classList.remove('dragging'); draggedChat = null; }
         
-        // --- CHANGED: Default chat title is now 'چت X' ---
         function createNewChat() {
             if (isCreatingChat) return;
             isCreatingChat = true;
             const existingIds = chats.map(chat => chat.id);
             let newId = 1;
             while (existingIds.includes(newId)) newId++;
-            const newChat = { id: newId, title: `چت ${newId}`, messages: [], prompt: '' }; // Changed 'داستان' to 'چت'
+            const newChat = { id: newId, title: `چت ${newId}`, messages: [], prompt: '' };
             chats.push(newChat);
             currentChatId = newChat.id;
             saveChatsDebounced();
@@ -725,6 +715,7 @@
             const readingModeButton = document.getElementById('reading-mode-button');
             const anchor = findScrollAnchor();
             readingMode = !readingMode;
+            main.classList.toggle('reading-mode', readingMode);
             
             function enterFullScreen() { const elem = document.documentElement; if (elem.requestFullscreen) { elem.requestFullscreen(); } else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); } }
             function exitFullScreen() { if (document.exitFullscreen) { document.exitFullscreen(); } else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); } }
@@ -743,7 +734,6 @@
         
         function editMainChatTitle(chatId) { const chatTitleMain = document.getElementById('chat-title-main'); const currentTitle = chatTitleMain.textContent; chatTitleMain.innerHTML = `<input type="text" value="${currentTitle}" />`; const input = chatTitleMain.querySelector('input'); input.focus(); input.setSelectionRange(input.value.length, input.value.length); input.onblur = () => saveMainChatTitle(chatId, input.value); input.onkeypress = (e) => { if (e.key === 'Enter') saveMainChatTitle(chatId, input.value); }; }
         
-        // --- CHANGED: Fallback title is also now 'چت X' ---
         function saveMainChatTitle(chatId, newTitle) { const chatTitleMain = document.getElementById('chat-title-main'); const chat = chats.find(c => c.id === chatId); const isDuplicate = chats.some(c => c.id !== chatId && c.title === newTitle); if (isDuplicate) { chatTitleMain.textContent = chat.title; } else { const finalTitle = newTitle.trim() || `چت ${chatId}`; chatTitleMain.textContent = finalTitle; if (chat) { chat.title = finalTitle; saveChatsDebounced(); renderChatList(); } } }
         function editChatTitle(chatId, button) { const chatItem = button.closest('.chat-item'); const chatTitle = chatItem.querySelector('.chat-title'); const currentTitle = chatTitle.textContent; chatTitle.innerHTML = `<input type="text" value="${currentTitle}" />`; const input = chatTitle.querySelector('input'); input.focus(); input.setSelectionRange(input.value.length, input.value.length); input.addEventListener('blur', function() { saveChatTitle(chatId, chatItem, input.value); }); input.addEventListener('keypress', function(e) { if (e.key === 'Enter') saveChatTitle(chatId, chatItem, input.value); }); }
         function saveChatTitle(chatId, chatItem, newTitle) { const chatTitle = chatItem.querySelector('.chat-title'); const chat = chats.find(c => c.id === chatId); const isDuplicate = chats.some(c => c.id !== chatId && c.title === newTitle); if (isDuplicate) { chatTitle.textContent = chat.title; } else { const finalTitle = newTitle.trim() || `چت ${chatId}`; chatTitle.textContent = finalTitle; if (chat) { chat.title = finalTitle; saveChatsDebounced(); document.getElementById('chat-title-main').textContent = finalTitle; } } }
@@ -764,8 +754,11 @@
         }
         
         function openPromptModal() {
-            const currentChat = chats.find(c => c.id === currentChatId);
-            if (!currentChat) { createNewChat(); return; }
+            let currentChat = chats.find(c => c.id === currentChatId);
+            if (!currentChat) {
+                createNewChat();
+                currentChat = chats.find(c => c.id === currentChatId); // Get the newly created chat
+            }
             const modal = document.getElementById('prompt-modal');
             const textarea = document.getElementById('prompt-modal-textarea');
             textarea.value = currentChat.prompt || '';
