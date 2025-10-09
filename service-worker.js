@@ -1,7 +1,7 @@
 'use strict';
 
 // *** CHANGED: Updated cache name for new version ***
-const CACHE_NAME = 'nora-novelist-cache-v1.0.7';
+const CACHE_NAME = 'nora-novelist-cache-v1.0.8';
 
 // *** ADDED: List of essential model files to pre-cache for faster initial load ***
 const modelUrlsToCache = [
