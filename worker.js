@@ -1,34 +1,30 @@
-// worker.js (Final Version with New CDN and Critical Checks)
+// worker.js (FINAL VERSION - LOCAL DEPENDENCY)
 
 try {
-    // Using UNPKG as an alternative CDN which sometimes has better compatibility.
-    importScripts(
-        'https://unpkg.com/@xenova/transformers@2.17.1/dist/transformers.min.js',
-        'https://unpkg.com/chromadb@1.8.1/dist/index.min.js'
-    );
+    // Load the main library from the local 'libs' folder.
+    importScripts('./libs/transformers.min.js'); 
+
+    // Load the second library from a reliable CDN as it's smaller and less problematic.
+    importScripts('https://unpkg.com/chromadb@1.8.1/dist/index.min.js');
+
 } catch (e) {
-    // This will catch direct network errors or syntax errors in the imported scripts.
     console.error('CRITICAL: importScripts failed to execute.', e);
-    // Re-throw to make sure the worker's onerror handler in index.html catches this.
     throw e;
 }
 
 // --- CRITICAL CHECK ---
-// This is the most important part. We check if the libraries actually attached to the global scope.
 if (typeof self.transformers === 'undefined' || !self.transformers.pipeline) {
-    throw new Error("FATAL: Transformers.js library was imported but failed to initialize. 'self.transformers' is not defined. This could be a network, VPN, or CORS issue.");
+    throw new Error("FATAL: Local transformers.min.js library failed to load or initialize.");
 }
 if (typeof self.chromadb === 'undefined' || !self.chromadb.ChromaClient) {
-    throw new Error("FATAL: ChromaDB library was imported but failed to initialize. 'self.chromadb' is not defined.");
+    throw new Error("FATAL: ChromaDB library from CDN failed to load or initialize.");
 }
 // --- END OF CRITICAL CHECK ---
 
 
-// Now we can safely destructure the variables.
 const { pipeline, env } = self.transformers;
 const { ChromaClient } = self.chromadb;
 
-// Skip local model checks
 env.allowLocalModels = false;
 env.useBrowserCache = true;
 
@@ -73,7 +69,7 @@ function chunkText(text, chunkSize = 250, overlap = 50) {
     return chunks;
 }
 
-// --- API Handlers ---
+// --- API Handlers (minified to save space, functionality is identical) ---
 async function getOrCreateCollections(chatId){const embedder=new TransformerEmbeddingFunction(embeddingPipeline);const activeCollectionName=`chat_${chatId}_active`;const archiveCollectionName=`chat_${chatId}_archive`;const activeCollection=await chromaClient.getOrCreateCollection({name:activeCollectionName,embeddingFunction:embedder});const archiveCollection=await chromaClient.getOrCreateCollection({name:archiveCollectionName,embeddingFunction:embedder});return{activeCollection,archiveCollection}}
 async function handleAddToMemory({chatId,messageId,text}){if(!embeddingPipeline||!chromaClient){error('Worker is not initialized.');return}
 log(`Adding text from message ${messageId} to memory for chat ${chatId}...`);try{const{activeCollection}=await getOrCreateCollections(chatId);const chunks=chunkText(text);if(chunks.length===0)return;const ids=chunks.map((_,i)=>`msg_${messageId}_chunk_${i}`);const metadatas=chunks.map(()=>({message_id:messageId,timestamp:Date.now()}));await activeCollection.add({ids,documents:chunks,metadatas});log(`Successfully added ${chunks.length} chunks to active memory for chat ${chatId}.`);self.postMessage({type:'add-to-memory-done',payload:{messageId}})}catch(e){error(`Failed to add to memory: ${e.message}`)}}
