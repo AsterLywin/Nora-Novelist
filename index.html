@@ -145,7 +145,7 @@
         #manual-control-wrapper .modal-description { text-align: right; }
         #manual-instruction-textarea { min-height: 80px; }
 
-        /* *** NEW: Styles for Markdown content *** */
+        /* Styles for Markdown content */
         .ai-message h1, .ai-message h2, .ai-message h3 {
             margin-top: 20px;
             margin-bottom: 10px;
@@ -156,9 +156,13 @@
         .ai-message h1 { font-size: 1.5em; }
         .ai-message h2 { font-size: 1.3em; }
         .ai-message h3 { font-size: 1.1em; }
+        
+        /* *** MODIFIED: Reduced paragraph margin for tighter spacing *** */
         .ai-message p {
-            margin-bottom: 12px;
+            margin-top: 0;
+            margin-bottom: 0.75em; 
         }
+
         .ai-message ul, .ai-message ol {
             padding-right: 25px;
             margin-bottom: 12px;
@@ -217,7 +221,6 @@
         .ai-message th {
             background-color: #2d333b;
         }
-        /* *** END of Markdown Styles *** */
 
     </style>
 </head>
@@ -398,7 +401,6 @@
     
     <input type="file" id="import-file-input" style="display: none;" accept=".nora,.json">
     
-    <!-- *** NEW: Added Markdown and Sanitizer libraries *** -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@2.3.8/dist/purify.min.js"></script>
 
@@ -544,7 +546,6 @@
             return generatedText;
         }
         
-        // *** MODIFIED: This function now renders Markdown content ***
         async function handleContextRetrieved(payload) {
             const { context, messageId, regenerationInstruction } = payload;
             const currentChat = chats.find(chat => chat.id === currentChatId);
@@ -584,7 +585,6 @@
                 const directionClass = isRTL(generatedText) ? 'rtl' : 'ltr';
                 aiMessageElement.className = `message ai-message ${directionClass}`;
                 
-                // *** NEW: Parse and sanitize Markdown content ***
                 aiMessageElement.innerHTML = DOMPurify.sanitize(marked.parse(generatedText));
 
                 const actionsDiv = document.createElement('div');
@@ -899,7 +899,6 @@
             });
         }
         
-        // *** MODIFIED: This function now renders Markdown content from storage ***
         function loadChat(chatId) {
             currentChatId = chatId;
             const chatArea = document.getElementById('chat-area');
@@ -923,7 +922,6 @@
                         messageBdi.textContent = message.text;
                         messageDiv.appendChild(messageBdi);
                     } else {
-                        // *** NEW: Parse and sanitize Markdown for existing messages ***
                         messageDiv.innerHTML = DOMPurify.sanitize(marked.parse(message.text));
                     }
 
